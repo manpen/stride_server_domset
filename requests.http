@@ -88,3 +88,7 @@ content-type: application/json
     "solution": "1\n1",
     "seconds_computed": 0.1
 }
+
+###
+
+http://localhost:8000/api/instances/fetch_unsolved

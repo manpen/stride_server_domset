@@ -10,6 +10,9 @@ pub use instance_list::instance_list_handler;
 pub mod instance_download;
 pub use instance_download::instance_download_handler;
 
+pub mod instance_fetch_unsolved;
+pub use instance_fetch_unsolved::instance_fetch_unsolved_handler;
+
 pub mod tag_create;
 pub use tag_create::tag_create_handler;
 
