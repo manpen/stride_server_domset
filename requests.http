@@ -1,0 +1,90 @@
+http://localhost:8000/api/status
+
+###
+
+POST http://localhost:8000/api/instances/new HTTP/1.1
+content-type: application/json
+
+{
+    "name": "test-upload",
+    "description": "this is a test upload",
+    "submitted_by": "myself",
+    "tags": ["gnp"],
+    "data": "p ds 10 3\n1 1\n2 3\n3 5"
+}
+
+###
+
+POST http://localhost:8000/api/instances/new HTTP/1.1
+content-type: application/json
+
+{
+    "name": "test-upload2",
+    "description": "this is the second test upload",
+    "submitted_by": "myself",
+    "data": "p ds 10 100\n1 1\n2 3\n3 5\n4 8"
+}
+
+###
+
+http://localhost:8000/api/instances
+
+###
+
+http://localhost:8000/api/instances?tag=gnp
+
+
+###
+
+http://localhost:8000/api/instances/download/2
+
+###
+
+http://localhost:8000/api/instances/11231231
+
+###
+
+http://localhost:8000/api/tags
+
+###
+
+POST http://localhost:8000/api/tags/new HTTP/1.1
+content-type: application/json
+
+{
+    "name": "test-tag"
+}
+
+###
+
+POST http://localhost:8000/api/tags/new HTTP/1.1
+content-type: application/json
+
+{
+    "name": "gnp",
+    "description": "Random G(n,p) graph / see Gilbert model"
+}
+
+### 
+
+POST http://localhost:8000/api/tags/new HTTP/1.1
+content-type: application/json
+
+{
+    "name": "random",
+    "description": "Random graph"
+}
+
+###
+
+
+POST http://localhost:8000/api/solutions/new HTTP/1.1
+content-type: application/json
+
+{
+    "instance_id": 1,
+    "algorithm": "test-algorithm",
+    "run_uuid": "a372185c-9a0d-11ef-99b4-cf894d32bedb",
+    "solution": "1\n1",
+    "seconds_computed": 0.1
+}
