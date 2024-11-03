@@ -78,7 +78,7 @@ mod test {
             edges.sort();
             edges.dedup();
 
-            let read_edges: Vec<_> = reader.collect();
+            let read_edges: Vec<_> = reader.map(|x| x.unwrap()).collect();
 
             assert_eq!(edges, read_edges);
         }

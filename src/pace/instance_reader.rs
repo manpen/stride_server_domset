@@ -39,12 +39,14 @@ impl<R: BufRead> PaceReader<R> {
 }
 
 impl<R: BufRead> Iterator for PaceReader<R> {
-    type Item = Edge;
+    type Item = Result<Edge>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.parse_edge_line()
-            .unwrap()
-            .map(|Edge(u, v)| Edge(u - 1, v - 1))
+        match self.parse_edge_line() {
+            Ok(Some(Edge(u, v))) => Some(Ok(Edge(u - 1, v - 1))),
+            Ok(None) => None,
+            Err(e) => Some(Err(e)),
+        }
     }
 }
 
@@ -160,7 +162,7 @@ mod test {
         assert_eq!(pace_reader.number_of_edges(), 9);
         assert_eq!(pace_reader.problem_id(), "deMo");
 
-        let edges: Vec<_> = pace_reader.collect();
+        let edges: Vec<_> = pace_reader.map(|x| x.unwrap()).collect();
         assert_eq!(
             edges,
             vec![
