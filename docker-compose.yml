@@ -9,3 +9,14 @@ services:
       - '6500:3306'
     volumes:
       - ./data/mysql:/var/lib/mysql
+
+  webserver:
+    container_name: webserver
+    build: docker/webserver
+    env_file:
+      - ./.env
+    volumes:
+      - .:/srv/:ro
+    ports:
+      - '80:8000'
+      - '443:8080'

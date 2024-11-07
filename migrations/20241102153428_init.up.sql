@@ -51,12 +51,11 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS SolverRun (
         sr_id INT AUTO_INCREMENT PRIMARY KEY,
-        uuid VARCHAR(36) NOT NULL,
-        solver_name VARCHAR(255) NOT NULL,
-        exact_candidate BOOLEAN NOT NULL,
+        run_uuid VARCHAR(36) NOT NULL,
+        solver_uuid VARCHAR(36),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
         
-        UNIQUE INDEX `idx_uuid` (`uuid`)
+        UNIQUE INDEX `idx_uuid` (`run_uuid`)
     );
 
 CREATE TABLE
@@ -76,12 +75,13 @@ CREATE TABLE
         instance_iid INT NOT NULL,
 
         solution_hash CHAR(64),
+        error_code INT UNSIGNED,
         score INT UNSIGNED,
         seconds_computed DOUBLE NOT NULL,
 
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (instance_iid) REFERENCES Instance(iid),
-        FOREIGN KEY (sr_uuid) REFERENCES SolverRun(uuid),
+        FOREIGN KEY (sr_uuid) REFERENCES SolverRun(run_uuid),
         FOREIGN KEY (solution_hash) REFERENCES SolutionData(hash),
 
         UNIQUE INDEX `idx_sr_uuid_instance_iid` (`sr_uuid`, `instance_iid`)
