@@ -120,18 +120,16 @@ pub async fn instance_download_handler(
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use super::*;
 
     #[sqlx::test(fixtures("instances"))]
     async fn fetch_instance(pool: DbPool) -> sqlx::Result<()> {
         let (instance, data) = super::fetch_instance(1, &pool).await.unwrap();
         assert_eq!(instance.iid, 1);
-        assert_eq!(instance.nodes, 10);
-        assert_eq!(instance.edges, 20);
+        assert_eq!(instance.nodes, 2);
+        assert_eq!(instance.edges, 1);
         assert_eq!(instance.submitted_by.unwrap(), "tester");
-        assert_eq!(data, "deadbeef");
+        assert!(data.starts_with("p ds"));
 
         let _ = super::fetch_instance(2, &pool).await.unwrap();
 

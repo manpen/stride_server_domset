@@ -5,12 +5,16 @@ import sqlite3
 from pathlib import Path
 import subprocess
 import time
+import hashlib
+import uuid
 
 ENDPOINT = 'http://localhost:8000/'
 
 DB_DIR_PATH = Path("./.runner/")
 DB_CACHE_PATH = DB_DIR_PATH / "instances.db"
 DB_RUNNER_PATH = DB_DIR_PATH / "runner.db"
+
+VERBOSE = False
 
 def abort(message):
     print(message)
@@ -50,7 +54,7 @@ def fetch_instance_data_from_cache(data_hash):
     
 def download_instance_data(instance_id, data_hash):
     url = ENDPOINT + f'api/instances/download/{instance_id}'
-    print(f'Downloading instance from {url}')
+    if VERBOSE: print(f'Downloading instance from {url}')
     try:
         req = requests.get(url)
         req.raise_for_status()
@@ -60,7 +64,7 @@ def download_instance_data(instance_id, data_hash):
     data = req.text
     assert "p ds" in data, "Instance data does not contain header 'p ds'"
 
-    print(f'Caching instance')
+    if VERBOSE: print(f'Caching instance')
     with db_open_cache_db() as conn:
         cursor = conn.cursor()
         cursor.execute('INSERT INTO InstanceData (hash, data) VALUES (?, ?)', (data_hash, data))
@@ -85,27 +89,40 @@ def load_instance(instance_id):
     instance_record["data"] = data
     return instance_record
 
+class SolutionSyntaxError(Exception): pass
+class SolutionInfeasbileError(Exception): pass
+
 
 def read_solution(data):
+    """Read solution from data in the PACE format:
+    - first line is number of nodes k in the solution
+    - following lines are node numbers
+    There are k + 1 lines in total, plus optional comments starting with 'c'.
+    Empty lines are ignored.
+    """
     try:
         lines = (x.strip() for x in data.split('\n'))
         numbers = [int(x) for x in lines if x and not x.startswith('c')]
     except Exception as e:
-        print("Failed to parse solution", e)
-        return None
+        raise SolutionSyntaxError("Failed to parse solution", e)
     
     if not numbers:
-        print("Empty solution")
-        return None
+        raise SolutionInfeasbileError("Read empty solution")
     
     card = len(numbers) - 1
     if card != numbers[0]:
-        print(f"Solution is header (len={numbers[0]}) is inconsistent with number of lines ({card} + 1)")
-        return None
+        raise SolutionInfeasbileError(f"Solution is header (len={numbers[0]}) is inconsistent with number of lines ({card} + 1)")
 
     return numbers[1:]
 
 def read_instance(data):
+    """Read instance from data in the PACE format:
+    The header line starts with 'p ds' followed by number of nodes n and edges m.
+    Following lines are edges in the format 'u v'.
+    There are m+1 lines in total, plus optional comments starting with 'c'.
+    Empty lines are ignored.
+    Each edge exists only in one direction.
+    """
     num_nodes, num_edges, adjlist = None, None, None
 
     edges_seen = 0
@@ -147,27 +164,32 @@ def read_instance(data):
 
 
 def verify_solution(graph_nodes, graph_adjlist, solution):
+    """Verify solution for graph with graph_nodes and graph_adjlist.
+    Returns true on success and raises SolutionInfeasbileError on failure."""
     if len(solution) > graph_nodes:
-        print("Solution has more nodes than graph")
-        return False
+        raise SolutionInfeasbileError("Solution has more nodes than graph")
     
     if any(not 1 <= i <= graph_nodes for i in solution):
-        print("Solution has invalid node")
-        return False
+        raise SolutionInfeasbileError("Solution has invalid node")
 
     covered = set()
     for u in solution:
         covered.update(graph_adjlist[u])
 
     if len(covered) != graph_nodes:
-        print("Solution does not cover nodes", sorted(set(range(1, graph_nodes + 1)) - covered))
-        return False
+        raise SolutionInfeasbileError("Solution does not cover nodes", sorted(set(range(1, graph_nodes + 1)) - covered))
     
     return True
 
+def compute_hash_of_solution(solution):
+    hasher = hashlib.sha256()
+    for number in solution:
+        hasher.update(number.to_bytes(4, byteorder='little', signed=False))
+    return hasher.hexdigest()
+
 
 def execute_solver(args, instance_data):
-    print("Execute solver ...")
+    if VERBOSE: print("Execute solver ...")
     cmd = [args.solver]
 
     data = instance_data["data"]
@@ -179,48 +201,77 @@ def execute_solver(args, instance_data):
     
     kill_sent = False
     result = None
+    timeout = False
     while True:
         elapsed = time.time() - start
         retcode = process.poll()
 
         if retcode is not None:
-            result = process.stdout.read()
             break
 
         if elapsed > args.timeout and not kill_sent:
             process.kill()
-            print("Send kill signal")
+            if VERBOSE: print("Send kill signal")
             kill_sent = True
 
         elif elapsed > args.timeout + args.grace:
             process.terminate()
-            print("Send term signal and ignore output")
+            if VERBOSE: print("Send term signal and ignore output")
+            timeout = True
             break
             
-        time.sleep(0.1 + min(4.9, elapsed / 10))
+        time.sleep(0.1 + min(0.5, elapsed / 10))
     
-    return {"result": result}
+    result = process.stdout.read() if not timeout else None
+    return {"result": result, "elapsed": elapsed, "timeout": timeout}
+
+def upload_solution(args, instance_id, solution, solver_result):
+    url = ENDPOINT + f'api/solutions/new'
+
+    # TODO: implement caching and dont upload if hash is already in database
+
+    params = {
+            "instance_id": instance_id,
+            "run_uuid": args.run,
+            "seconds_computed": solver_result["elapsed"],
+            "solution": solution,
+    }
+
+    if args.solver_uuid is not None:
+        params["solver_uuid"] = args.solver_uuid
+
+    if VERBOSE: print(f'Uploading result {url}')
+    try:
+        req = requests.post(url, json=params)
+        req.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        abort(f"Failed to upload result \nError: {e}")
+
+
 
 def run_command(args):
-    print('Running solver {} on instance {}'.format(args.solver, args.instance))
+    if VERBOSE: print('Running solver {} on instance {}'.format(args.solver, args.instance))
     
     instance = load_instance(args.instance)
     assert instance is not None and instance.get('data') is not None, 'Instance not found'
 
     graph_nodes, graph_adjlist = read_instance(instance["data"])
 
-    result = execute_solver(args, instance)
+    solver_result = execute_solver(args, instance)
 
-    if result is not None:
-        solution = read_solution(result["result"])
+    if solver_result is not None:
+        solution = read_solution(solver_result["result"])
         is_valid = verify_solution(graph_nodes, graph_adjlist, solution)
         
-        if is_valid:
+        if VERBOSE and is_valid:
             print("Solution is valid")
+
+        upload_solution(args, instance["iid"], solution, solver_result)
         
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
     subparsers = parser.add_subparsers(dest='command')
 
@@ -233,6 +284,13 @@ def main():
     run_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
 
     args = parser.parse_args()
+
+    if args.run is None:
+        args.run = uuid.uuid4().hex
+
+
+    args.solver_uuid = "49442d06-9d29-11ef-8b4a-4f6690149c60"
+    VERBOSE = args.verbose
     
     if args.command == 'run':
         run_command(args)
