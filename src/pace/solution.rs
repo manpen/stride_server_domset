@@ -1,3 +1,5 @@
+use sha2::{digest::Output, Digest, Sha256};
+
 use super::graph::*;
 use std::{
     collections::HashSet,
@@ -11,6 +13,21 @@ pub struct Solution {
 }
 
 impl Solution {
+    pub fn from_vec(mut solution: Vec<Node>, nodes_upper_bound: Option<NumNodes>) -> Result<Self> {
+        for u in solution.iter_mut() {
+            if *u == 0 || nodes_upper_bound.map_or(false, |n| *u > n) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Node id out of range",
+                ));
+            }
+
+            *u -= 1;
+        }
+
+        Ok(Self { solution })
+    }
+
     pub fn read<R: BufRead>(reader: R, nodes_upper_bound: Option<NumNodes>) -> Result<Self> {
         let reader = reader::SolutionReader::try_new(reader)?;
         let solution_size = reader.solution_size();
@@ -107,6 +124,16 @@ impl Solution {
         }
 
         Ok(covered.len() == n as usize)
+    }
+
+    pub fn compute_digest(&self) -> Output<Sha256> {
+        let mut hasher = Sha256::new();
+
+        for &node in &self.solution {
+            hasher.update((node + 1).to_le_bytes());
+        }
+
+        hasher.finalize()
     }
 }
 
@@ -263,5 +290,14 @@ mod test {
         }
         .valid_domset_for_instance(4, edges.iter().copied())
         .unwrap());
+    }
+
+    #[test]
+    fn digest_matches_python() {
+        let solution = Solution::from_vec((1..10).collect(), None).unwrap();
+        assert_eq!(
+            format!("{:x}", solution.compute_digest()),
+            "e3d25e7590edd76206831801f67d1ee231d8b90a2bb4bfe31a152be21d2f536c"
+        );
     }
 }
