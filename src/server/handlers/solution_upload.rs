@@ -41,7 +41,7 @@ async fn read_instance_data(db: &DbPool, instance_id: u32) -> HandlerResult<(Num
         .map_err(debug_to_err_response)?;
 
     if instance_reader.number_of_nodes() != record.nodes {
-        return_bad_request_json!("Instance node count mismatch");
+        return bad_request_json!("Instance node count mismatch");
     }
 
     let mut edges = Vec::with_capacity(instance_reader.number_of_edges() as usize);
@@ -69,7 +69,7 @@ async fn verify_solution(
         .valid_domset_for_instance(nodes, edges.into_iter())
         .map_err(debug_to_err_response)?
     {
-        return_bad_request_json!("Solution is not a valid dominating set for the instance");
+        return bad_request_json!("Solution is not a valid dominating set for the instance");
     }
 
     Ok(solution)
@@ -85,10 +85,10 @@ pub async fn solution_upload_handler(
         if let Some(solution) = &mut body.solution {
             Some(verify_solution(data.db(), body.instance_id, std::mem::take(solution)).await?)
         } else {
-            return_bad_request_json!("Error code is 'Valid', but no solution provided");
+            return bad_request_json!("Error code is 'Valid', but no solution provided");
         }
     } else if body.solution.as_ref().map_or(false, |s| !s.is_empty()) {
-        return_bad_request_json!("Error code is marks invalid solution, but solution provided");
+        return bad_request_json!("Error code is marks invalid solution, but solution provided");
     } else {
         None
     };

@@ -14,19 +14,11 @@ pub async fn tag_create_handler(
     let description = body.description.as_ref().map(|s| s.trim());
 
     if name.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"status": "error", "message": "name is required"})),
-        ));
+        return bad_request_json!("Tag name is required");
     }
 
     if name.chars().next().unwrap().is_numeric() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(
-                serde_json::json!({"status": "error", "message": "name cannot start with a number"}),
-            ),
-        ));
+        return bad_request_json!("Tag name cannot start with a number");
     }
 
     let tag_id = sqlx::query(r#"INSERT INTO Tag (name,description) VALUES (?, ?)"#)

@@ -26,13 +26,7 @@ fn normalize_dimacs(data: &str) -> HandlerResult<(NumNodes, NumEdges, String, St
             Ok(edge) => {
                 let edge = edge.normalized();
                 if edge.max_node() >= num_nodes_per_header as Node {
-                    return Err((
-                        StatusCode::BAD_REQUEST,
-                        Json(serde_json::json!({
-                            "status": "error",
-                            "message": "Edge contains node id that is larger than the number of nodes in the header",
-                        })),
-                    ));
+                    return bad_request_json!("Edge contains node id that is larger than the number of nodes in the header");
                 }
 
                 edges.push(edge.normalized())
@@ -45,13 +39,9 @@ fn normalize_dimacs(data: &str) -> HandlerResult<(NumNodes, NumEdges, String, St
     edges.dedup();
 
     if edges.len() != num_edges_per_header {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "status": "error",
-                "message": "Number of edges after deduplication does not match the number of edges in the header",
-            })),
-        ));
+        return bad_request_json!(
+            "Number of edges after deduplication does not match the number of edges in the header"
+        );
     }
 
     // find all nodes that are used in the edges
