@@ -23,7 +23,7 @@ impl FilterOptions {
 #[allow(non_snake_case)]
 struct InstanceModel {
     iid: i32,
-    data_hash : Option<String>,
+    data_hash: Option<String>,
     nodes: u32,
     edges: u32,
     name: Option<String>,
@@ -67,7 +67,7 @@ pub async fn instance_list_handler(
                 tag,
                 limit as i32,
                 offset as i32
-                )    
+            )
                 .fetch_all(data.db())
                 .await
                 .map_err(sql_to_err_response)?
@@ -77,7 +77,7 @@ pub async fn instance_list_handler(
             r#"SELECT i.*, (NULL) as "best_known_solution: u32" FROM `Instance` i ORDER by created_at LIMIT ? OFFSET ?"#,
             limit as i32,
             offset as i32
-            )    
+            )
             .fetch_all(data.db())
             .await
             .map_err(sql_to_err_response)?

@@ -8,9 +8,9 @@ use crate::{
 #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum SolutionErrorCode {
     Valid = 0,
-    Invalid = 1,
-    Timeout = 2,
-    SyntaxError = 3,
+    Infeasible = 1,
+    SyntaxError = 2,
+    Timeout = 100,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
