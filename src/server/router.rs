@@ -1,8 +1,22 @@
 use super::{app_state::AppState, handlers::*};
-use axum::{routing::get, routing::post, Router};
+use axum::{
+    handler::HandlerWithoutStateExt,
+    http::StatusCode,
+    routing::{get, post},
+    Router,
+};
 use std::sync::Arc;
 
+use tower_http::services::ServeDir;
+
+async fn handle_404() -> (StatusCode, &'static str) {
+    (StatusCode::NOT_FOUND, "Not found")
+}
+
 pub fn create_router(app_state: Arc<AppState>) -> Router {
+    // you can convert handler function to service
+    let service_404 = handle_404.into_service();
+
     Router::new()
         .route("/api/status", get(status_handler))
         .route("/api/instances/new", post(instance_upload_handler))
@@ -18,11 +32,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route("/api/tags/new", post(tag_create_handler))
         .route("/api/tags", get(tag_list_handler))
         .route("/api/solutions/new", post(solution_upload_handler))
-        //.route(
-        //    "/api/notes/:id",
-        //    get(get_note_handler)
-        //        .patch(edit_note_handler)
-        //        .delete(delete_note_handler),
-        //)
+        // serve static files
+        .fallback_service(ServeDir::new("assets").not_found_service(service_404))
         .with_state(app_state)
 }
