@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Share your Problems ... and Solutions</title>
+
+    <style>
+        body {
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            font-size: 1rem;
+            line-height: 1.5
+        }
+
+        table#instances {
+            width: 100%;
+        }
+
+        table#instances tbody tr:nth-child(odd) {
+            background-color: #eef;
+        }
+
+        table#instances tbody tr:nth-child(even) {
+            background-color: white;
+        }
+
+        table#instances th {
+            text-align: left;
+        }
+
+        table#instance td {
+            padding: 0.2em 1em 0.2em 1em;
+        }
+
+        table#instances .name {
+            font-size: 120%;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        table#instances .iid {
+            color: #444;
+        }
+
+        table#instances p {
+            margin: 0;
+            color: #444;
+        }
+
+        table#instances tr td:last-child,
+        table#instances tr .num {
+            text-align: right;
+        }
+
+        table#instances tr td {
+            border-right: 2px solid white;
+        }
+
+        table#instances tr td:last-child {
+            border-right: none;
+        }
+
+        table#instances a {
+            text-decoration: none;
+            padding: 0 0 0 1em;
+        }
+
+        #pagination {
+            margin-top: 1em;
+            text-align: center;
+        }
+
+        #pagination button {
+            margin: 0.5em;
+        }
+
+        .tag {
+            font-weight: bold;
+            padding: 0.1em 0.5em 0.1em 0.5em;
+            border-radius: 0.5em;
+            display: inline;
+
+            color: white;
+            background-color: #444;
+            margin-left: 1em;
+        }
+
+        .tagstyle1 {
+            background: blue;
+        }
+
+        .tagstyle2 {
+            background: darkred;
+        }
+
+        .tagstyle3 {
+            background: darkgreen;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Instance and Solution</h1>
+
+    <div>
+        Tags:
+        <span id="tags">
+            <!-- Tags will be populated here -->
+        </span>
+    </div>
+
+    <table id="instances">
+        <thead>
+            <tr>
+                <th>Instance</th>
+                <th class="num">Nodes</th>
+                <th class="num">Edges</th>
+                <th class="num">Best Solution</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data will be populated here -->
+        </tbody>
+    </table>
+
+    <div id="pagination">
+        <!-- Pagination controls will be populated here -->
+    </div>
+
+    <script>
+        const apiBase = '/api/';
+        const apiTags = apiBase + 'tags';
+        const apiInstances = apiBase + 'instances';
+
+        let currentPage = 1;
+        let tags = null;
+
+        function fetchTags() {
+            fetch(`${apiTags}`)
+                .then(response => response.json())
+                .then(data => {
+                    tags = {};
+                    data.forEach(tag => {
+                        tags[tag.tid] = tag;
+                    });
+
+                    populateTags(data);
+
+                    fetchData(currentPage);
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        function createTagTag(data) {
+            const tag = document.createElement('span');
+            tag.className = `tag tagstyle${data.style}`;
+            tag.innerText = data.name;
+
+            return tag;
+        }
+
+        function populateTags(tags) {
+            const tagsBody = document.querySelector('#tags');
+            tagsBody.innerHTML = '';
+
+            tags.forEach(data => {
+                tagsBody.appendChild(createTagTag(data));
+            });
+        }
+
+        function fetchData(page) {
+
+            fetch(`${apiInstances}?page=${page}`)
+                .then(response => response.json())
+                .then(data => {
+                    populateTable(data.results);
+                    setupPagination(data.options.page, Math.ceil(data.total_matches / data.options.limit));
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        function populateTable(instances) {
+            const tableBody = document.querySelector('#instances tbody');
+            tableBody.innerHTML = '';
+            instances.forEach(ins => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>
+                        <span class="iid">${ins.iid}</span>
+                        <span class="name">${ins.name}</span>
+                        <span class="tags"></span>
+                        <p>${ins.description}</p>
+                    </td>
+                    <td class="num">${ins.nodes}</td>
+                    <td class="num">${ins.edges}</td>
+                    <td class="num">?</td>
+                    <td>
+                        <a href="#" alt="Details">🔍</a>
+                        <a href="api/instance/download/${ins.iid}" alt="Download">⬇️</a>
+                    </td>`;
+
+                ins.tags.forEach(tid => {
+                    row.querySelector(".tags").appendChild(createTagTag(tags[tid]));
+                });
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        function setupPagination(current, total) {
+            const paginationDiv = document.getElementById('pagination');
+            paginationDiv.innerHTML = '';
+
+            for (let i = 1; i <= total; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.disabled = i === current;
+                pageButton.addEventListener('click', () => fetchData(i));
+                paginationDiv.appendChild(pageButton);
+            }
+        }
+
+        fetchTags();
+    </script>
+</body>
+
+</html>
