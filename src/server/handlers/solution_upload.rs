@@ -209,7 +209,7 @@ mod test {
                 seconds_computed: 1.0,
 
                 solution: Some(vec![1 as Node, 2]),
-                error_code: Some(SolutionErrorCode::Invalid), // code is invalid, but solution is given
+                error_code: Some(SolutionErrorCode::Infeasible), // code is invalid, but solution is given
             },
             false
         );
@@ -222,7 +222,7 @@ mod test {
                 seconds_computed: 1.0,
 
                 solution: None,
-                error_code: Some(SolutionErrorCode::Invalid),
+                error_code: Some(SolutionErrorCode::Infeasible),
             },
             true
         );
