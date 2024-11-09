@@ -35,6 +35,7 @@ CREATE TABLE
         description TEXT,
         name VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        style INT,
         UNIQUE INDEX `idx_name` (`name`)
     );
 
