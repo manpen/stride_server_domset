@@ -4,7 +4,7 @@ use super::common::*;
 pub struct TagCreateRequest {
     pub name: String,
     pub description: Option<String>,
-    pub style: Option<u32>,
+    pub style: u32,
 }
 
 pub async fn tag_create_handler(
@@ -48,13 +48,13 @@ mod test {
         let req_full = TagCreateRequest {
             name: String::from("Hi"),
             description: Some(String::from("Desc")),
-            style: Some(42),
+            style: 42,
         };
 
         let req_partial = TagCreateRequest {
             name: String::from("Low"),
             description: None,
-            style: None,
+            style: 2,
         };
 
         {
