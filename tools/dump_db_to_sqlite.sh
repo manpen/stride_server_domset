@@ -14,6 +14,8 @@ fi
 
 . $PYENV/bin/activate
 
+rm -rf ${SQLITE_DB_FILE}
+
 mysql2sqlite \
     -f $SQLITE_DB_FILE \
     -d $MYSQL_DATABASE \
@@ -28,3 +30,5 @@ echo "UPDATE solutiondata SET data = NULL;" \
 
 echo "VACUUM;" \
     | sqlite3 $SQLITE_DB_FILE    
+
+mv ${SQLITE_DB_FILE} ../assets/
