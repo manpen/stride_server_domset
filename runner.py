@@ -188,7 +188,7 @@ def verify_solution(graph_nodes, graph_adjlist, solution):
     
     return True
 
-def compute_hash_of_solution(solution):
+def hash_of_solution(solution):
     hasher = hashlib.sha256()
     for number in solution:
         hasher.update(number.to_bytes(4, byteorder='little', signed=False))
@@ -235,17 +235,30 @@ def execute_solver(args, instance_data):
 def upload_solution(args, instance_id, solution, solver_result):
     url = ENDPOINT + f'api/solutions/new'
 
-    # TODO: implement caching and dont upload if hash is already in database
-
     params = {
             "instance_id": instance_id,
-            "run_uuid": args.run,
+            "run_uuid": args.run_id,
             "seconds_computed": solver_result["elapsed"],
-            "solution": solution,
+            "result": {"status": "valid", "data": solution},
     }
 
     if args.solver_uuid is not None:
         params["solver_uuid"] = args.solver_uuid
+
+        if len(solution) > 50:
+            # dont upload long solutions if they are already stored in the database
+            hash = hash_of_solution(solution)
+            with db_open_cache_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM SolutionHashes WHERE hash = ?', (hash,))
+                row = cursor.fetchone()
+                
+                if row is not None:
+                    if VERBOSE: print(f'Solution hash {hash} already in database, dont upload sequence again')
+                    params["result"] = {"status": "validcached", "hash": hash}
+
+                else:
+                    cursor.execute('INSERT INTO SolutionHashes (hash) VALUES (?)', (hash,))
 
     if VERBOSE: print(f'Uploading result {url}')
     try:
@@ -254,6 +267,23 @@ def upload_solution(args, instance_id, solution, solver_result):
     except requests.exceptions.HTTPError as e:
         abort(f"Failed to upload result \nError: {e}")
 
+def upload_invalid_result(args, instance_id, solver_result, status):
+    assert status in ["timeout", "syntaxerror", "infeasible"]
+
+    url = ENDPOINT + f'api/solutions/new'
+
+    params = {
+            "instance_id": instance_id,
+            "run_uuid": args.run_id,
+            "seconds_computed": solver_result["elapsed"],
+            "result": {"status": status},
+    }
+
+    if args.solver_uuid is not None:
+        params["solver_uuid"] = args.solver_uuid
+
+    req = requests.post(url, json=params)
+    req.raise_for_status()
 
 
 def run_command(args):
