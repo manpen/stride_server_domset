@@ -10,12 +10,15 @@ import uuid
 import tempfile
 import shutil
 import psutil
+import json
 
 ENDPOINT = 'http://localhost:8000/'
 
-DB_DIR_PATH = Path("./.runner/")
-DB_CACHE_PATH = DB_DIR_PATH / "instances.db"
-DB_RUNNER_PATH = DB_DIR_PATH / "runner.db"
+RUNNER_DIR = Path("./.runner/")
+DB_CACHE_PATH = RUNNER_DIR / "instances.db"
+DB_RUNNER_PATH = RUNNER_DIR / "runner.db"
+RUNNER_DEFAULTS_JSON = RUNNER_DIR / "defaults.json"
+
 
 VERBOSE = False
 
@@ -307,9 +310,6 @@ def download_instance_database():
             Path(temp.name).unlink()
 
 def download_solution_hashes(args):
-    if args.solver_uuid is None:
-        return
-
     url = ENDPOINT + f'api/solution_hashes/{args.solver_uuid}'
     data = requests.get(url).json()
 
@@ -395,7 +395,46 @@ def bench_command(args):
 
         time.sleep(0.1)
 
+def store_defaults(values):
+    RUNNER_DEFAULTS_JSON.parent.mkdir(parents=True, exist_ok=True)
+    with RUNNER_DEFAULTS_JSON.open("w") as f:
+        json.dump(values, f, indent=4, sort_keys=True)
 
+def load_defaults(defs):
+    values = {}
+    if RUNNER_DEFAULTS_JSON.exists():
+        with RUNNER_DEFAULTS_JSON.open() as f:
+            values = json.load(f)
+
+    changed = False
+    for key, value in defs.items():
+        if key not in values:
+            values[key] = value
+            changed = True
+
+    if changed:
+        store_defaults(values)
+
+    return values
+
+def register_command(args, defs):
+    if defs["solver_uuid"] is not None and not args.yes:
+        print(f"Solver UUID already set to {defs['solver_uuid']}")
+        print(f"You can access all uploaded information under {ENDPOINT}/solver/{defs['solver_uuid']}")
+
+        for _ in range(10):
+            print("WARNING: If you overwrite the UUID, you will lose access to the previous data")
+                    
+        abort("Please confirm with -y to overwrite")
+
+    if args.solver_uuid is None:
+        defs["solver_uuid"] = str(uuid.uuid4())
+    else:
+        defs["solver_uuid"] = str(uuid.UUID(args.solver_uuid))
+    
+    store_defaults(defs)
+    print(f"Solver UUID updated to {defs['solver_uuid']}")
+    print(f"You can access all uploaded information under {ENDPOINT}/solver/{defs['solver_uuid']}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -403,28 +442,42 @@ def main():
 
     subparsers = parser.add_subparsers(dest='command')
 
+    defs = load_defaults({
+        "solver": None,
+        "solver_uuid": None,
+        "timeout": 300,
+        "grace": 5,
+    })
+
+    # update
     update_parser = subparsers.add_parser('update', help='Update instances and solutions')
+    update_parser.add_argument('-S', '--solver_uuid', default=defs["solver_uuid"], help='UUID of the solver / should be stored in runner.json')
 
     # solve
     solver_parser = subparsers.add_parser('solve', help='Run solver on instance')
-    solver_parser.add_argument('-s', '--solver', required=True, help='Path to solver to execute')
+    solver_parser.add_argument('-S', '--solver_uuid', default=defs["solver_uuid"], help='UUID of the solver / should be stored in runner.json')
+    solver_parser.add_argument('-s', '--solver', default=defs["solver"], help='Path to solver to execute')
     solver_parser.add_argument('-i', '--instance', required=True, help='Instance to solve')
     solver_parser.add_argument('-r', '--run_id', help='UUID of the run; random if not provided')
-    solver_parser.add_argument('-T', '--timeout', type=int, default=300, help='Timeout in seconds')
-    solver_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
+    solver_parser.add_argument('-T', '--timeout', type=int, default=defs["timeout"], help='Timeout in seconds')
+    solver_parser.add_argument('-g', '--grace', type=int, default=defs["grace"], help='Grace period in seconds')
 
     # run
     bench_parser = subparsers.add_parser('bench', help='Run solver on multiple instances')
-    bench_parser.add_argument('-s', '--solver', required=True, help='Path to solver to execute')
-    bench_parser.add_argument('-T', '--timeout', type=int, default=300, help='Timeout in seconds')
-    bench_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
+    bench_parser.add_argument('-S', '--solver_uuid', default=defs["solver_uuid"], help='UUID of the solver / should be stored in runner.json')
+    bench_parser.add_argument('-s', '--solver', default=defs["solver"], help='Path to solver to execute')
+    bench_parser.add_argument('-T', '--timeout', type=int, default=defs["timeout"], help='Timeout in seconds')
+    bench_parser.add_argument('-g', '--grace', type=int, default=defs["grace"], help='Grace period in seconds')
     bench_parser.add_argument('-t', '--tags', nargs='+', help='Tags to filter instances')
     bench_parser.add_argument('-u', '--unsolved', action='store_true', help='Only run on unsolved instances')
     bench_parser.add_argument('-j', '--jobs', type=int, default=None, help='Number of parallel jobs')
 
-    args = parser.parse_args()
+    # register 
+    register_parser = subparsers.add_parser('register', help='Set random solver uuid to identify solver over multiple runs')
+    register_parser.add_argument('-S', '--solver_uuid', default=None, help='UUID of the solver / omit to randomize')
+    register_parser.add_argument('-y', '--yes', action='store_true', help='If already registered, confirm overwrite')
 
-    args.solver_uuid = "49442d06-9d29-11ef-8b4a-4f6690149c60"
+    args = parser.parse_args()
     VERBOSE = args.verbose
     
     if args.command == 'solve':
@@ -435,6 +488,9 @@ def main():
 
     elif args.command == 'bench':
         bench_command(args)
+
+    elif args.command == 'register':
+        register_command(args, defs)
 
     else:
         parser.print_help()
