@@ -12,6 +12,7 @@ serde = { version = "1.0.214", features = ["derive"] }
 serde_json = "1.0.132"
 sha2 = "0.10.8"
 sqlx = { version = "0.8.2", features = ["runtime-async-std-native-tls", "mysql", "chrono", "uuid"] }
+sqlx-conditional-queries = { version = "0.2.1", features = ["mysql"] }
 tokio = { version = "1.41.0", features = ["full"] }
 tower = { version = "0.5.1", features = ["util"] }
 tower-http = { version = "0.6.1", features = ["cors", "fs", "trace"] }

@@ -1,3 +1,5 @@
+use sqlx_conditional_queries::conditional_query_as;
+
 use crate::pace::graph::NumNodes;
 
 use super::common::*;
@@ -6,7 +8,29 @@ use super::common::*;
 pub struct FilterOptions {
     pub page: Option<usize>,
     pub limit: Option<usize>,
-    pub tag: Option<String>,
+    pub tag: Option<u32>,
+
+    pub sort_by: Option<SortBy>,
+    pub sort_direction: Option<SortDirection>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SortBy {
+    Id,
+    Name,
+    Nodes,
+    Edges,
+    CreatedAt,
+    Score,
+    Difficulty,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SortDirection {
+    Asc,
+    Desc,
 }
 
 impl FilterOptions {
@@ -15,6 +39,8 @@ impl FilterOptions {
             page: Some(self.page.unwrap_or(1)),
             limit: Some(self.limit.unwrap_or(100)),
             tag: self.tag,
+            sort_by: Some(self.sort_by.unwrap_or(SortBy::Id)),
+            sort_direction: Some(self.sort_direction.unwrap_or(SortDirection::Asc)),
         }
     }
 }
@@ -57,56 +83,52 @@ pub async fn instance_list_handler(
     let Query(opts) = opts.unwrap_or_default();
     let opts = opts.defaults_for_missing();
 
-    let limit = opts.limit.unwrap();
-    let offset = opts.page.unwrap().saturating_sub(1) * limit;
+    let limit = opts.limit.unwrap() as u32;
+    let offset = (opts.page.unwrap().saturating_sub(1) * opts.limit.unwrap()) as u32;
 
-    let total_matches: Option<usize>;
+    struct CountRecord {
+        cnt : Option<i64>,
+    }
 
-    // TODO: add join for best_known_solution
-    // TODO: add tag filtering
-    let instances = if let Some(tag) = opts.tag.as_ref() {
-        total_matches = Some(
-            sqlx::query_scalar!(r#"SELECT COUNT(*) FROM `Instance` i JOIN InstanceTag it ON i.iid = it.instance_iid JOIN Tag t ON t.tid = it.tag_tid WHERE t.name = ?"#, tag)
-            .fetch_one(data.db()).await
-         .map_err(sql_to_err_response)? as usize);
+    let total_matches = conditional_query_as!(CountRecord, 
+        r#"SELECT COUNT(*) as cnt FROM `Instance` i JOIN InstanceTag it ON i.iid = it.instance_iid JOIN Tag t ON t.tid = it.tag_tid {#tag}"#,
+        #tag = match opts.tag {
+            Some(tid) => "WHERE t.name = {tid}",
+            None => ""
+        }
+    ).fetch_one(data.db()).await
+    .map_err(sql_to_err_response)?
+    .cnt;
 
-        sqlx::query_as!(
-                InstanceModel,
-                r#"
-                    SELECT i.*, (NULL) as "best_known_solution: u32", GROUP_CONCAT(it.tag_tid) as tags
-                    FROM `Instance` i 
-                    JOIN InstanceTag it ON i.iid = it.instance_iid 
-                    JOIN Tag t ON t.tid = it.tag_tid 
-                    WHERE t.name = ? 
-                    GROUP BY i.iid
-                    ORDER by created_at 
-                    LIMIT ? 
-                    OFFSET ?"#,
-                tag,
-                limit as i32,
-                offset as i32
-            )
-                .fetch_all(data.db())
-                .await
-                .map_err(sql_to_err_response)?
-    } else {
-        total_matches = Some(
-            sqlx::query_scalar!(r#"SELECT COUNT(*) FROM `Instance` i"#)
-                .fetch_one(data.db())
-                .await
-                .map_err(sql_to_err_response)? as usize,
-        );
-
-        sqlx::query_as!(
-                InstanceModel,
-            r#"SELECT i.*, (NULL) as "best_known_solution: u32", GROUP_CONCAT(it.tag_tid) as tags FROM `Instance` i JOIN InstanceTag it ON i.iid = it.instance_iid GROUP BY i.iid ORDER by created_at LIMIT ? OFFSET ? "#,
-            limit as i32,
-            offset as i32
-            )
-            .fetch_all(data.db())
-            .await
-            .map_err(sql_to_err_response)?
-    };
+    let instances = conditional_query_as!(
+        InstanceModel,
+        r#"SELECT i.*, MIN((SELECT score FROM Solution WHERE instance_iid=i.iid)) as best_known_solution, GROUP_CONCAT(tag_tid) as tags
+           FROM `Instance` i
+           JOIN InstanceTag it ON i.iid = it.instance_iid
+           {#tag_filter} 
+           GROUP BY i.iid
+           ORDER BY {#order_field} {#order_dir}
+           LIMIT {limit} OFFSET {offset}"#,
+           #tag_filter = match opts.tag {
+               Some(x) => " WHERE it.tag_tid = {x}",
+               None => ""
+           },
+           #order_field = match opts.sort_by.unwrap() {
+               SortBy::Id => "iid",
+               SortBy::Name => "name",
+               SortBy::Nodes => "nodes",
+               SortBy::Edges => "edges",
+               SortBy::CreatedAt => "created_at",
+               SortBy::Score => "best_known_solution",
+               SortBy::Difficulty => "best_known_solution",
+           },
+           #order_dir = match opts.sort_direction.unwrap() {
+               SortDirection::Desc => "DESC",
+               SortDirection::Asc => "ASC",
+           }
+    ).fetch_all(data.db())
+    .await
+    .map_err(sql_to_err_response)?;
 
     let results = instances
         .iter()

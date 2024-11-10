@@ -84,6 +84,7 @@
             color: white;
             background-color: #444;
             margin-left: 1em;
+            cursor: pointer;
         }
 
         .tagstyle1 {
@@ -96,6 +97,37 @@
 
         .tagstyle3 {
             background: darkgreen;
+        }
+
+        .tag.active::after {
+            content: " ❌";
+        }
+
+        .tag.inactive {
+            opacity: 0.5;
+        }
+
+        th.asc::after {
+            content: " ↗️";
+        }
+
+        th.desc::after {
+            content: " ↘️";
+        }
+
+        th.clickable {
+            cursor: pointer;
+        }
+
+        #header_id,
+        #header_tools {
+            width: 5em;
+        }
+
+        #header_nodes,
+        #header_edges,
+        #header_score {
+            width: 10em;
         }
     </style>
 </head>
@@ -113,11 +145,12 @@
     <table id="instances">
         <thead>
             <tr>
-                <th>Instance</th>
-                <th class="num">Nodes</th>
-                <th class="num">Edges</th>
-                <th class="num">Best Solution</th>
-                <th></th>
+                <th id="header_id" onclick="javascript:sort_by('id')" class="clickable">Id</th>
+                <th id="header_name" onclick="javascript:sort_by('name')" class="clickable">Instance</th>
+                <th id="header_nodes" onclick="javascript:sort_by('nodes')" class="clickable num">Nodes</th>
+                <th id="header_edges" onclick="javascript:sort_by('edges')" class="clickable  num">Edges</th>
+                <th id="header_score" onclick="javascript:sort_by('score')" class="clickable  num">Best Solution</th>
+                <th id="header_tools"></th>
             </tr>
         </thead>
         <tbody>
@@ -134,8 +167,39 @@
         const apiTags = apiBase + 'tags';
         const apiInstances = apiBase + 'instances';
 
-        let currentPage = 1;
         let tags = null;
+
+        let filterOptions = {
+            direction: "asc",
+            order_by: "id",
+            current_page: 1,
+            tag: null
+        };
+
+        function sort_by(name) {
+            if (filterOptions.order_by == name) {
+                filterOptions.direction = (filterOptions.direction == "asc") ? "desc" : "asc";
+            } else {
+                filterOptions.order_by = name;
+                filterOptions.direction = "asc";
+            }
+
+            fetchData();
+        }
+
+        function click_on_tag(tid) {
+            console.log(tid);
+            if (filterOptions.tag == tid) {
+                // remove
+                filterOptions.tag = null;
+            } else {
+                filterOptions.current_page = 1;
+                filterOptions.tag = tid;
+            }
+
+            populateTags();
+            fetchData();
+        }
 
         function fetchTags() {
             fetch(`${apiTags}`)
@@ -148,31 +212,50 @@
 
                     populateTags(data);
 
-                    fetchData(currentPage);
+                    fetchData();
                 })
                 .catch(error => console.error('Error fetching data:', error));
         }
 
-        function createTagTag(data) {
+        function createTagTag(data, with_counts = false) {
             const tag = document.createElement('span');
             tag.className = `tag tagstyle${data.style}`;
-            tag.innerText = data.name;
+
+            if (filterOptions.tag !== null) {
+                tag.classList.add(
+                    filterOptions.tag == data.tid
+                        ? "active" : "inactive");
+            }
+
+            tag.innerText = data.name +
+                (with_counts ? ` (${data.num_instances})` : '');
+
+            tag.onclick = function (e) { click_on_tag(data.tid); };
 
             return tag;
         }
 
-        function populateTags(tags) {
+        function populateTags() {
             const tagsBody = document.querySelector('#tags');
             tagsBody.innerHTML = '';
 
-            tags.forEach(data => {
-                tagsBody.appendChild(createTagTag(data));
-            });
+            for (let tid in tags) {
+                tagsBody.appendChild(createTagTag(tags[tid], true));
+            }
         }
 
-        function fetchData(page) {
+        function fetchData() {
+            let opts = "page=" + filterOptions["current_page"];
+            opts += "&limit=30";
+            opts += "&sort_direction=" + filterOptions["direction"];
+            opts += "&sort_by=" + filterOptions["order_by"];
 
-            fetch(`${apiInstances}?page=${page}`)
+            if (filterOptions.tag !== null) {
+                opts += "&tag=" + filterOptions.tag;
+            }
+
+
+            fetch(`${apiInstances}?${opts}`)
                 .then(response => response.json())
                 .then(data => {
                     populateTable(data.results);
@@ -186,18 +269,21 @@
             tableBody.innerHTML = '';
             instances.forEach(ins => {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td>
-                        <span class="iid">${ins.iid}</span>
+
+                score = ins.best_known_solution ? ins.best_known_solution : 'n/a';
+
+                row.innerHTML = `<td>${ins.iid}</td>
+                    <td>
                         <span class="name">${ins.name}</span>
                         <span class="tags"></span>
                         <p>${ins.description}</p>
                     </td>
                     <td class="num">${ins.nodes}</td>
                     <td class="num">${ins.edges}</td>
-                    <td class="num">?</td>
+                    <td class="num">${score}</td>
                     <td>
                         <a href="#" alt="Details">🔍</a>
-                        <a href="api/instance/download/${ins.iid}" alt="Download">⬇️</a>
+                        <a href="${apiBase}instances/download/${ins.iid}" alt="Download">⬇️</a>
                     </td>`;
 
                 ins.tags.forEach(tid => {
@@ -206,6 +292,11 @@
 
                 tableBody.appendChild(row);
             });
+
+            let tableHead = document.querySelector("#instances thead");
+            tableHead.querySelectorAll(".asc").forEach(th => th.classList.remove("asc"));
+            tableHead.querySelectorAll(".desc").forEach(th => th.classList.remove("desc"));
+            tableHead.querySelector('#header_' + filterOptions.order_by).classList.add(filterOptions.direction);
         }
 
         function setupPagination(current, total) {
@@ -216,7 +307,10 @@
                 const pageButton = document.createElement('button');
                 pageButton.textContent = i;
                 pageButton.disabled = i === current;
-                pageButton.addEventListener('click', () => fetchData(i));
+                pageButton.addEventListener('click', () => {
+                    filterOptions.current_page = i;
+                    fetchData();
+                });
                 paginationDiv.appendChild(pageButton);
             }
         }

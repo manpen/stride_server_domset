@@ -8,6 +8,7 @@ struct TagModel {
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
     style: u32,
+    num_instances: i64,
 }
 
 pub async fn tag_list_handler(
@@ -15,7 +16,13 @@ pub async fn tag_list_handler(
 ) -> HandlerResult<impl IntoResponse> {
     let tags = sqlx::query_as!(
         TagModel,
-        r#"SELECT tid, name, description, style FROM Tag ORDER BY name"#
+        r#"SELECT 
+            t.tid, t.name, t.description, t.style, 
+            COUNT(it.instance_iid) as num_instances 
+        FROM Tag t
+        JOIN InstanceTag it ON it.tag_tid=t.tid
+        GROUP BY t.tid
+        ORDER BY num_instances DESC"#
     )
     .fetch_all(data.db())
     .await
