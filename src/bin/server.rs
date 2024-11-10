@@ -1,12 +1,7 @@
 use std::sync::Arc;
 
-use axum::http::{
-    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-    HeaderValue, Method,
-};
 use dotenv::dotenv;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
-use tower_http::cors::CorsLayer;
 
 use pace_server::server::{app_state::AppState, router::create_router};
 
@@ -22,7 +17,7 @@ async fn connect_to_database() -> MySqlPool {
         .await;
 
     if let Err(err) = pool {
-        error!("🔥 Failed to connect to the database: {:?}", err);
+        error!("Failed to connect to the database: {:?}", err);
         std::process::exit(1);
     }
 
@@ -46,20 +41,21 @@ async fn main() {
 
     let app = create_router(Arc::new(app_state));
 
-    let app = {
-        let cors = CorsLayer::new()
-            .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
-            .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
-            .allow_credentials(true)
-            .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
-        app.layer(cors)
-    };
-
     info!("Pace Server started successfully");
 
     let bind_address = "0.0.0.0:8000";
-    let listener = tokio::net::TcpListener::bind(bind_address).await.unwrap();
-    info!("Start listening on {bind_address}");
+    let listener = match tokio::net::TcpListener::bind(bind_address).await {
+        Ok(listener) => {
+            info!("Start listening on {bind_address}");
+            listener
+        }
+        Err(err) => {
+            error!("Failed to listen to {bind_address}: {:?}", err);
+            std::process::exit(1);
+        }
+    };
 
-    axum::serve(listener, app).await.unwrap()
+    if let Err(err) = axum::serve(listener, app).await {
+        error!("Failed to serve {err:?}");
+    }
 }
