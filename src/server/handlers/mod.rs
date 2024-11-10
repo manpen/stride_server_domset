@@ -22,5 +22,8 @@ pub use tag_list::tag_list_handler;
 pub mod solution_upload;
 pub use solution_upload::solution_upload_handler;
 
+pub mod solution_hash_list;
+pub use solution_hash_list::solution_hash_list_handler;
+
 // imports used by pretty much every handler
 mod common;

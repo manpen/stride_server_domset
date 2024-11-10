@@ -32,6 +32,10 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route("/api/tags/new", post(tag_create_handler))
         .route("/api/tags", get(tag_list_handler))
         .route("/api/solutions/new", post(solution_upload_handler))
+        .route(
+            "/api/solution_hashes/:solver_uuid",
+            get(solution_hash_list_handler),
+        )
         // serve static files
         .fallback_service(ServeDir::new("assets").not_found_service(service_404))
         .with_state(app_state)
