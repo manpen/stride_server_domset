@@ -7,6 +7,8 @@ import subprocess
 import time
 import hashlib
 import uuid
+import tempfile
+import shutil
 
 ENDPOINT = 'http://localhost:8000/'
 
@@ -34,11 +36,16 @@ def db_open_path(path):
     return con
 
 def db_open_runner_db():
+     if not DB_RUNNER_PATH.exists():
+         print("Runner database not found, downloading ...")
+         download_instance_database()
+         
      return db_open_path(DB_RUNNER_PATH)
 
 def db_open_cache_db():
     db = db_open_path(DB_CACHE_PATH)
     db.execute(r"""CREATE TABLE IF NOT EXISTS InstanceData ( did INT AUTO_INCREMENT PRIMARY KEY, hash CHAR(64) NOT NULL, data LONGBLOB);""")
+    db.execute(r"""CREATE TABLE IF NOT EXISTS SolutionHashes ( hash CHAR(64) PRIMARY KEY);""")
     return db
 
 def fetch_instance_data_from_cache(data_hash):
@@ -259,15 +266,68 @@ def run_command(args):
 
     solver_result = execute_solver(args, instance)
 
-    if solver_result is not None:
+    if solver_result is None:
+        return upload_invalid_result(args, instance["iid"], solver_result, "infeasible")
+
+    if solver_result["timeout"]:
+        return upload_invalid_result(args, instance["iid"], solver_result, "timeout")
+        
+    try:
         solution = read_solution(solver_result["result"])
         is_valid = verify_solution(graph_nodes, graph_adjlist, solution)
         
         if VERBOSE and is_valid:
             print("Solution is valid")
+    except SolutionSyntaxError:
+        return upload_invalid_result(args, instance["iid"], solver_result, "syntaxerror")
+    except SolutionInfeasbileError:
+        return upload_invalid_result(args, instance["iid"], solver_result, "infeasible")
 
-        upload_solution(args, instance["iid"], solution, solver_result)
-        
+    upload_solution(args, instance["iid"], solution, solver_result)
+
+
+def download_instance_database():
+    with tempfile.NamedTemporaryFile(mode="bw", delete=False) as temp:
+        try:
+            with requests.get(ENDPOINT + "runner.db", stream=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=8192):
+                    temp.write(chunk)
+
+            temp.close()
+            
+            if VERBOSE: print(f'Downloaded')
+            DB_RUNNER_PATH.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(temp.name, DB_RUNNER_PATH)
+
+        except requests.exceptions.HTTPError as e:
+            abort(f"Failed to download file\nError: {e}")
+
+        if Path(temp.name).exists():
+            Path(temp.name).unlink()
+
+def download_solution_hashes(args):
+    if args.solver_uuid is None:
+        return
+
+    url = ENDPOINT + f'api/solution_hashes/{args.solver_uuid}'
+    data = requests.get(url).json()
+
+    assert data.get("status") == "ok", "Failed to download solution hashes"
+
+    with db_open_cache_db() as conn:
+        for hash in data["hashes"]:
+            conn.execute('INSERT INTO SolutionHashes (hash) VALUES (?)', (hash,))
+
+    if VERBOSE: print(f'Downloaded {len(data["hashes"])} solution hashes')
+
+def update_command(args):
+    download_instance_database()
+    download_solution_hashes(args)
+
+
+
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -275,25 +335,36 @@ def main():
 
     subparsers = parser.add_subparsers(dest='command')
 
-    run_parser = subparsers.add_parser('run')
+    update_parser = subparsers.add_parser('update', help='Update instances and solutions')
+
+    # solve
+    solver_parser = subparsers.add_parser('solve', help='Run solver on instance')
+    solver_parser.add_argument('-s', '--solver', required=True, help='Path to solver to execute')
+    solver_parser.add_argument('-i', '--instance', required=True, help='Instance to solve')
+    solver_parser.add_argument('-r', '--run_id', help='UUID of the run; random if not provided')
+    solver_parser.add_argument('-T', '--timeout', type=int, default=300, help='Timeout in seconds')
+    solver_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
+
+    # run
+    run_parser = subparsers.add_parser('run', help='Run solver on multiple instances')
     run_parser.add_argument('-s', '--solver', required=True, help='Path to solver to execute')
-    run_parser.add_argument('-i', '--instance', required=True, help='Instance to solve')
-    
-    run_parser.add_argument('-r', '--run', help='UUID of the run; random if not provided')
-    run_parser.add_argument('-t', '--timeout', type=int, default=300, help='Timeout in seconds')
+    run_parser.add_argument('-T', '--timeout', type=int, default=300, help='Timeout in seconds')
     run_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
+    run_parser.add_argument('-t', '--tags', nargs='+', help='Tags to filter instances')
 
     args = parser.parse_args()
 
-    if args.run is None:
-        args.run = uuid.uuid4().hex
-
+    if args.run_id is None:
+        args.run_id = str(uuid.uuid4())
 
     args.solver_uuid = "49442d06-9d29-11ef-8b4a-4f6690149c60"
     VERBOSE = args.verbose
     
-    if args.command == 'run':
+    if args.command == 'solve':
         run_command(args)
+
+    elif args.command == 'update':
+        update_command(args)
 
     else:
         parser.print_help()
