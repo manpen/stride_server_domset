@@ -1,6 +1,7 @@
 use sqlx::MySqlPool;
 
 pub type DbPool = MySqlPool;
+pub type DbTransaction<'a> = sqlx::Transaction<'a, sqlx::MySql>;
 
 pub struct AppState {
     db: DbPool,

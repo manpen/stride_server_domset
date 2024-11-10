@@ -5,6 +5,7 @@ pub use axum::http::StatusCode;
 pub use axum::{response::IntoResponse, Json};
 pub use serde::{Deserialize, Serialize};
 pub use std::sync::Arc;
+use tracing::debug;
 
 pub(super) fn debug_to_err_response<T: std::fmt::Debug>(
     err: T,
@@ -17,14 +18,20 @@ pub(super) fn debug_to_err_response<T: std::fmt::Debug>(
 
 pub(super) fn sql_to_err_response(err: sqlx::Error) -> (StatusCode, Json<serde_json::Value>) {
     match err {
-        sqlx::Error::RowNotFound => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"status": "error", "message": "Entry not found"})),
-        ),
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"status": "error", "message": err.to_string()})),
-        ),
+        sqlx::Error::RowNotFound => {
+            debug!("Query error: Entry not found {err:?}");
+            (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"status": "error", "message": "Entry not found"})),
+            )
+        }
+        _ => {
+            debug!("Query error: {err:?}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"status": "error", "message": err.to_string()})),
+            )
+        }
     }
 }
 
