@@ -367,17 +367,22 @@ def bench_command(args):
     if args.jobs is None:
         args.jobs = psutil.cpu_count(logical=False)
 
+    run_id = str(uuid.uuid4()) if args.run_id is None else str(uuid(args.run_id))
+
     with db_open_runner_db() as conn:
         cursor = conn.cursor()
         sql = 'SELECT i.iid FROM Instance i'
+        params = []
         if args.unsolved:
-            sql += ' WHERE iid NOT IN (SELECT instance_iid FROM solution)'
-        cursor.execute(sql)
+            sql += ' WHERE iid NOT IN (SELECT instance_iid FROM solution'
+            if args.solver_uuid is not None:
+                sql += f' WHERE sr_uuid = ?'
+                params.append(run_id)
+            sql += ')'
+        cursor.execute(sql, tuple(params))
         instances = cursor.fetchall()
 
     print(f"Running on {len(instances)} instances")
-
-    run_id = str(uuid.uuid4())
 
     processes = []
     while instances or processes:
@@ -462,9 +467,10 @@ def main():
     solver_parser.add_argument('-T', '--timeout', type=int, default=defs["timeout"], help='Timeout in seconds')
     solver_parser.add_argument('-g', '--grace', type=int, default=defs["grace"], help='Grace period in seconds')
 
-    # run
+    # bench
     bench_parser = subparsers.add_parser('bench', help='Run solver on multiple instances')
     bench_parser.add_argument('-S', '--solver_uuid', default=defs["solver_uuid"], help='UUID of the solver / should be stored in runner.json')
+    bench_parser.add_argument('-r', '--run_id', help='should only be set to continue a previous run and in combination with -u')
     bench_parser.add_argument('-s', '--solver', default=defs["solver"], help='Path to solver to execute')
     bench_parser.add_argument('-T', '--timeout', type=int, default=defs["timeout"], help='Timeout in seconds')
     bench_parser.add_argument('-g', '--grace', type=int, default=defs["grace"], help='Grace period in seconds')
