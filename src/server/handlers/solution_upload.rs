@@ -19,6 +19,7 @@ pub enum SolverResult {
     Infeasible,
     SyntaxError,
     Timeout,
+    NonCompetitive,
 
     #[serde(skip_deserializing)]
     Empty, // internal use only, to allow moving solutions out without copying
@@ -30,6 +31,7 @@ enum SolverResultType {
     Infeasible = 2,
     SyntaxError = 3,
     Timeout = 4,
+    NonCompetitive = 5,
 }
 
 impl SolverResult {
@@ -40,6 +42,7 @@ impl SolverResult {
             SolverResult::Infeasible => Some(SolverResultType::Infeasible),
             SolverResult::SyntaxError => Some(SolverResultType::SyntaxError),
             SolverResult::Timeout => Some(SolverResultType::Timeout),
+            SolverResult::NonCompetitive => Some(SolverResultType::NonCompetitive),
             SolverResult::Empty => None,
         }
     }
@@ -278,11 +281,12 @@ pub async fn solution_upload_handler(
                 .await?
                 .into_response()
         }
-        SolverResult::Infeasible | SolverResult::SyntaxError | SolverResult::Timeout => {
-            handle_invalid_solution(app_state, request, result_type)
-                .await?
-                .into_response()
-        }
+        SolverResult::Infeasible
+        | SolverResult::SyntaxError
+        | SolverResult::Timeout
+        | SolverResult::NonCompetitive => handle_invalid_solution(app_state, request, result_type)
+            .await?
+            .into_response(),
         SolverResult::Empty => return bad_request_json!("Empty solution result"),
     })
 }

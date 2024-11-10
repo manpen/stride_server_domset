@@ -9,6 +9,7 @@ import hashlib
 import uuid
 import tempfile
 import shutil
+import psutil
 
 ENDPOINT = 'http://localhost:8000/'
 
@@ -98,7 +99,6 @@ def load_instance(instance_id):
 
 class SolutionSyntaxError(Exception): pass
 class SolutionInfeasbileError(Exception): pass
-
 
 def read_solution(data):
     """Read solution from data in the PACE format:
@@ -268,7 +268,7 @@ def upload_solution(args, instance_id, solution, solver_result):
         abort(f"Failed to upload result \nError: {e}")
 
 def upload_invalid_result(args, instance_id, solver_result, status):
-    assert status in ["timeout", "syntaxerror", "infeasible"]
+    assert status in ["timeout", "syntaxerror", "infeasible", "noncompetitive"]
 
     url = ENDPOINT + f'api/solutions/new'
 
@@ -284,36 +284,6 @@ def upload_invalid_result(args, instance_id, solver_result, status):
 
     req = requests.post(url, json=params)
     req.raise_for_status()
-
-
-def run_command(args):
-    if VERBOSE: print('Running solver {} on instance {}'.format(args.solver, args.instance))
-    
-    instance = load_instance(args.instance)
-    assert instance is not None and instance.get('data') is not None, 'Instance not found'
-
-    graph_nodes, graph_adjlist = read_instance(instance["data"])
-
-    solver_result = execute_solver(args, instance)
-
-    if solver_result is None:
-        return upload_invalid_result(args, instance["iid"], solver_result, "infeasible")
-
-    if solver_result["timeout"]:
-        return upload_invalid_result(args, instance["iid"], solver_result, "timeout")
-        
-    try:
-        solution = read_solution(solver_result["result"])
-        is_valid = verify_solution(graph_nodes, graph_adjlist, solution)
-        
-        if VERBOSE and is_valid:
-            print("Solution is valid")
-    except SolutionSyntaxError:
-        return upload_invalid_result(args, instance["iid"], solver_result, "syntaxerror")
-    except SolutionInfeasbileError:
-        return upload_invalid_result(args, instance["iid"], solver_result, "infeasible")
-
-    upload_solution(args, instance["iid"], solution, solver_result)
 
 
 def download_instance_database():
@@ -347,15 +317,83 @@ def download_solution_hashes(args):
 
     with db_open_cache_db() as conn:
         for hash in data["hashes"]:
-            conn.execute('INSERT INTO SolutionHashes (hash) VALUES (?)', (hash,))
+            conn.execute('INSERT OR IGNORE INTO SolutionHashes (hash) VALUES (?)', (hash,))
 
     if VERBOSE: print(f'Downloaded {len(data["hashes"])} solution hashes')
+
+def solve_command(args):
+    if args.run_id is None:
+        args.run_id = str(uuid.uuid4())
+
+    if VERBOSE: print('Running solver {} on instance {}'.format(args.solver, args.instance))
+    
+    instance = load_instance(args.instance)
+    assert instance is not None and instance.get('data') is not None, 'Instance not found'
+
+    graph_nodes, graph_adjlist = read_instance(instance["data"])
+
+    solver_result = execute_solver(args, instance)
+
+    if solver_result is None:
+        return upload_invalid_result(args, instance["iid"], solver_result, "infeasible")
+
+    if solver_result["timeout"]:
+        return upload_invalid_result(args, instance["iid"], solver_result, "timeout")
+        
+    try:
+        solution = read_solution(solver_result["result"])
+        is_valid = verify_solution(graph_nodes, graph_adjlist, solution)
+        
+        if VERBOSE and is_valid:
+            print("Solution is valid")
+
+    except SolutionSyntaxError:
+        return upload_invalid_result(args, instance["iid"], solver_result, "syntaxerror")
+    
+    except SolutionInfeasbileError:
+        return upload_invalid_result(args, instance["iid"], solver_result, "infeasible")
+
+    if len(solution) * 2 > instance["nodes"]:
+        return upload_invalid_result(args, instance["iid"], solver_result, "noncompetitive")
+
+    upload_solution(args, instance["iid"], solution, solver_result)
+
 
 def update_command(args):
     download_instance_database()
     download_solution_hashes(args)
 
+def bench_command(args):
+    if args.jobs is None:
+        args.jobs = psutil.cpu_count(logical=False)
 
+    with db_open_runner_db() as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT i.iid FROM Instance i'
+        if args.unsolved:
+            sql += ' WHERE iid NOT IN (SELECT instance_iid FROM solution)'
+        cursor.execute(sql)
+        instances = cursor.fetchall()
+
+    print(f"Running on {len(instances)} instances")
+
+    run_id = str(uuid.uuid4())
+
+    processes = []
+    while instances or processes:
+        if len(processes) < args.jobs and instances:
+            instance = instances.pop()
+            cmd = [__file__, 'solve', '-s', args.solver, '-i', str(instance["iid"]), '-r', run_id, '-T', str(args.timeout), '-g', str(args.grace)]
+            print(f"Running instance {instance['iid']}", " ".join(cmd))
+            p = subprocess.Popen(cmd)
+            processes.append(p)
+
+        for p in processes:
+            if p.poll() is not None:
+                processes.remove(p)
+                break
+
+        time.sleep(0.1)
 
 
 
@@ -376,25 +414,27 @@ def main():
     solver_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
 
     # run
-    run_parser = subparsers.add_parser('run', help='Run solver on multiple instances')
-    run_parser.add_argument('-s', '--solver', required=True, help='Path to solver to execute')
-    run_parser.add_argument('-T', '--timeout', type=int, default=300, help='Timeout in seconds')
-    run_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
-    run_parser.add_argument('-t', '--tags', nargs='+', help='Tags to filter instances')
+    bench_parser = subparsers.add_parser('bench', help='Run solver on multiple instances')
+    bench_parser.add_argument('-s', '--solver', required=True, help='Path to solver to execute')
+    bench_parser.add_argument('-T', '--timeout', type=int, default=300, help='Timeout in seconds')
+    bench_parser.add_argument('-g', '--grace', type=int, default=5, help='Grace period in seconds')
+    bench_parser.add_argument('-t', '--tags', nargs='+', help='Tags to filter instances')
+    bench_parser.add_argument('-u', '--unsolved', action='store_true', help='Only run on unsolved instances')
+    bench_parser.add_argument('-j', '--jobs', type=int, default=None, help='Number of parallel jobs')
 
     args = parser.parse_args()
-
-    if args.run_id is None:
-        args.run_id = str(uuid.uuid4())
 
     args.solver_uuid = "49442d06-9d29-11ef-8b4a-4f6690149c60"
     VERBOSE = args.verbose
     
     if args.command == 'solve':
-        run_command(args)
+        solve_command(args)
 
     elif args.command == 'update':
         update_command(args)
+
+    elif args.command == 'bench':
+        bench_command(args)
 
     else:
         parser.print_help()

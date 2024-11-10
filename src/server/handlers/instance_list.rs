@@ -102,7 +102,7 @@ pub async fn instance_list_handler(
 
     let instances = conditional_query_as!(
         InstanceModel,
-        r#"SELECT i.*, MIN((SELECT score FROM Solution WHERE instance_iid=i.iid)) as best_known_solution, GROUP_CONCAT(tag_tid) as tags
+        r#"SELECT i.*, (SELECT MIN(score) FROM Solution WHERE instance_iid=i.iid) as best_known_solution, GROUP_CONCAT(tag_tid) as tags
            FROM `Instance` i
            JOIN InstanceTag it ON i.iid = it.instance_iid
            {#tag_filter} 
