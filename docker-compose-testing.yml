@@ -7,5 +7,5 @@ services:
       - ./testing.env
     ports:
       - '6600:3306'
-    volumes:
-      - ./data/mysql-testing:/var/lib/mysql
+    #volumes:
+    #  - ./data/mysql-testing:/var/lib/mysql

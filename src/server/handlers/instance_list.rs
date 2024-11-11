@@ -87,16 +87,18 @@ pub async fn instance_list_handler(
     let offset = (opts.page.unwrap().saturating_sub(1) * opts.limit.unwrap()) as u32;
 
     struct CountRecord {
-        cnt : Option<i64>,
+        cnt: Option<i64>,
     }
 
-    let total_matches = conditional_query_as!(CountRecord, 
-        r#"SELECT COUNT(*) as cnt FROM `Instance` i JOIN InstanceTag it ON i.iid = it.instance_iid JOIN Tag t ON t.tid = it.tag_tid {#tag}"#,
+    let total_matches = conditional_query_as!(CountRecord,
+        r#"SELECT COUNT(*) as cnt FROM `Instance` i {#tag}"#,
         #tag = match opts.tag {
-            Some(tid) => "WHERE t.name = {tid}",
+            Some(tid) => "JOIN InstanceTag it ON i.iid = it.instance_iid WHERE it.tag_tid = {tid}",
             None => ""
         }
-    ).fetch_one(data.db()).await
+    )
+    .fetch_one(data.db())
+    .await
     .map_err(sql_to_err_response)?
     .cnt;
 
