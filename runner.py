@@ -185,6 +185,7 @@ def verify_solution(graph_nodes, graph_adjlist, solution):
     covered = set()
     for u in solution:
         covered.update(graph_adjlist[u])
+        covered.add(u)
 
     if len(covered) != graph_nodes:
         raise SolutionInfeasbileError("Solution does not cover nodes", sorted(set(range(1, graph_nodes + 1)) - covered))
@@ -248,7 +249,7 @@ def upload_solution(args, instance_id, solution, solver_result):
     if args.solver_uuid is not None:
         params["solver_uuid"] = args.solver_uuid
 
-        if len(solution) > 50:
+        if True:
             # dont upload long solutions if they are already stored in the database
             hash = hash_of_solution(solution)
             with db_open_cache_db() as conn:
