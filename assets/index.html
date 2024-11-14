@@ -4,7 +4,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Share your Problems ... and Solutions</title>
+    <title>Stride through the world of graphs at your own pace</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
     <style>
         body {
@@ -13,58 +15,14 @@
             line-height: 1.5
         }
 
-        table#instances {
-            width: 100%;
+        td:hover .desc {
+            display: block;
         }
 
-        table#instances tbody tr:nth-child(odd) {
-            background-color: #eef;
-        }
+        td .desc {
+            display: none;
+        }        
 
-        table#instances tbody tr:nth-child(even) {
-            background-color: white;
-        }
-
-        table#instances th {
-            text-align: left;
-        }
-
-        table#instance td {
-            padding: 0.2em 1em 0.2em 1em;
-        }
-
-        table#instances .name {
-            font-size: 120%;
-            font-weight: bold;
-            margin: 0;
-        }
-
-        table#instances .iid {
-            color: #444;
-        }
-
-        table#instances p {
-            margin: 0;
-            color: #444;
-        }
-
-        table#instances tr td:last-child,
-        table#instances tr .num {
-            text-align: right;
-        }
-
-        table#instances tr td {
-            border-right: 2px solid white;
-        }
-
-        table#instances tr td:last-child {
-            border-right: none;
-        }
-
-        table#instances a {
-            text-decoration: none;
-            padding: 0 0 0 1em;
-        }
 
         #pagination {
             margin-top: 1em;
@@ -133,7 +91,7 @@
 </head>
 
 <body>
-    <h1>Instance and Solution</h1>
+    <h1 alt="Sharing and Testing Repository for Instance Deployment and Evaluation">STRIDE</h1>
 
     <div>
         Tags:
@@ -142,181 +100,38 @@
         </span>
     </div>
 
-    <table id="instances">
+<div class="container">
+    <form class="row g-3">
+
+    </form>
+
+    <table id="instances" class="table table-dark table-striped table-hover">
         <thead>
             <tr>
-                <th id="header_id" onclick="javascript:sort_by('id')" class="clickable">Id</th>
-                <th id="header_name" onclick="javascript:sort_by('name')" class="clickable">Instance</th>
-                <th id="header_nodes" onclick="javascript:sort_by('nodes')" class="clickable num">Nodes</th>
-                <th id="header_edges" onclick="javascript:sort_by('edges')" class="clickable  num">Edges</th>
-                <th id="header_score" onclick="javascript:sort_by('score')" class="clickable  num">Best Solution</th>
-                <th id="header_tools"></th>
+                <th scope="col" id="header_id" onclick="javascript:sort_by('id')" class="clickable">Id</th>
+                <th scope="col" id="header_name" onclick="javascript:sort_by('name')" class="clickable">Instance</th>
+                <th scope="col" id="header_nodes" onclick="javascript:sort_by('nodes')" class="clickable num">Nodes</th>
+                <th scope="col" id="header_edges" onclick="javascript:sort_by('edges')" class="clickable  num">Edges</th>
+                <th scope="col" id="header_score" onclick="javascript:sort_by('score')" class="clickable  num">Best Solution</th>
+                <th scope="col" id="header_tools"></th>
             </tr>
         </thead>
         <tbody>
             <!-- Data will be populated here -->
         </tbody>
     </table>
+    <nav aria-label="Page navigation example">
+        <ul class="pagination" id="pagination">
+        </ul>
+    </nav>
 
-    <div id="pagination">
-        <!-- Pagination controls will be populated here -->
-    </div>
-
-    <script>
-        const apiBase = '/api/';
-        const apiTags = apiBase + 'tags';
-        const apiInstances = apiBase + 'instances';
-
-        let tags = null;
-
-        let filterOptions = {
-            direction: "asc",
-            order_by: "id",
-            current_page: 1,
-            tag: null
-        };
-
-        function sort_by(name) {
-            if (filterOptions.order_by == name) {
-                filterOptions.direction = (filterOptions.direction == "asc") ? "desc" : "asc";
-            } else {
-                filterOptions.order_by = name;
-                filterOptions.direction = "asc";
-            }
-
-            fetchData();
-        }
-
-        function click_on_tag(tid) {
-            console.log(tid);
-            if (filterOptions.tag == tid) {
-                // remove
-                filterOptions.tag = null;
-            } else {
-                filterOptions.current_page = 1;
-                filterOptions.tag = tid;
-            }
-
-            populateTags();
-            fetchData();
-        }
-
-        function fetchTags() {
-            fetch(`${apiTags}`)
-                .then(response => response.json())
-                .then(data => {
-                    tags = {};
-                    data.forEach(tag => {
-                        tags[tag.tid] = tag;
-                    });
-
-                    populateTags(data);
-
-                    fetchData();
-                })
-                .catch(error => console.error('Error fetching data:', error));
-        }
-
-        function createTagTag(data, with_counts = false) {
-            const tag = document.createElement('span');
-            tag.className = `tag tagstyle${data.style}`;
-
-            if (filterOptions.tag !== null) {
-                tag.classList.add(
-                    filterOptions.tag == data.tid
-                        ? "active" : "inactive");
-            }
-
-            tag.innerText = data.name +
-                (with_counts ? ` (${data.num_instances})` : '');
-
-            tag.onclick = function (e) { click_on_tag(data.tid); };
-
-            return tag;
-        }
-
-        function populateTags() {
-            const tagsBody = document.querySelector('#tags');
-            tagsBody.innerHTML = '';
-
-            for (let tid in tags) {
-                tagsBody.appendChild(createTagTag(tags[tid], true));
-            }
-        }
-
-        function fetchData() {
-            let opts = "page=" + filterOptions["current_page"];
-            opts += "&limit=30";
-            opts += "&sort_direction=" + filterOptions["direction"];
-            opts += "&sort_by=" + filterOptions["order_by"];
-
-            if (filterOptions.tag !== null) {
-                opts += "&tag=" + filterOptions.tag;
-            }
+</div>
 
 
-            fetch(`${apiInstances}?${opts}`)
-                .then(response => response.json())
-                .then(data => {
-                    populateTable(data.results);
-                    setupPagination(data.options.page, Math.ceil(data.total_matches / data.options.limit));
-                })
-                .catch(error => console.error('Error fetching data:', error));
-        }
-
-        function populateTable(instances) {
-            const tableBody = document.querySelector('#instances tbody');
-            tableBody.innerHTML = '';
-            instances.forEach(ins => {
-                const row = document.createElement('tr');
-
-                score = ins.best_known_solution ? ins.best_known_solution : 'n/a';
-
-                row.innerHTML = `<td>${ins.iid}</td>
-                    <td>
-                        <span class="name">${ins.name}</span>
-                        <span class="tags"></span>
-                        <p>${ins.description}</p>
-                    </td>
-                    <td class="num">${ins.nodes}</td>
-                    <td class="num">${ins.edges}</td>
-                    <td class="num">${score}</td>
-                    <td>
-                        <a href="#" alt="Details">🔍</a>
-                        <a href="${apiBase}instances/download/${ins.iid}" alt="Download">⬇️</a>
-                    </td>`;
-
-                ins.tags.forEach(tid => {
-                    row.querySelector(".tags").appendChild(createTagTag(tags[tid]));
-                });
-
-                tableBody.appendChild(row);
-            });
-
-            let tableHead = document.querySelector("#instances thead");
-            tableHead.querySelectorAll(".asc").forEach(th => th.classList.remove("asc"));
-            tableHead.querySelectorAll(".desc").forEach(th => th.classList.remove("desc"));
-            tableHead.querySelector('#header_' + filterOptions.order_by).classList.add(filterOptions.direction);
-        }
-
-        function setupPagination(current, total) {
-            const paginationDiv = document.getElementById('pagination');
-            paginationDiv.innerHTML = '';
-
-            for (let i = 1; i <= total; i++) {
-                const pageButton = document.createElement('button');
-                pageButton.textContent = i;
-                pageButton.disabled = i === current;
-                pageButton.addEventListener('click', () => {
-                    filterOptions.current_page = i;
-                    fetchData();
-                });
-                paginationDiv.appendChild(pageButton);
-            }
-        }
-
-        fetchTags();
-    </script>
+    <script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
 </body>
 
 </html>
