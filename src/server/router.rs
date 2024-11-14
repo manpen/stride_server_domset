@@ -1,9 +1,6 @@
 use super::{app_state::AppState, handlers::*};
 use axum::{
-    handler::HandlerWithoutStateExt,
-    http::StatusCode,
-    routing::{get, post},
-    Router,
+    extract::DefaultBodyLimit, handler::HandlerWithoutStateExt, http::StatusCode, routing::{get, post}, Router
 };
 use std::sync::Arc;
 
@@ -37,6 +34,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
             get(solution_hash_list_handler),
         )
         // serve static files
+        .layer(DefaultBodyLimit::max(100usize << 20))
         .fallback_service(ServeDir::new("assets").not_found_service(service_404))
         .with_state(app_state)
 }
