@@ -65,7 +65,7 @@ async fn read_instance_data(db: &DbPool, instance_id: u32) -> HandlerResult<(Num
         data: Option<Vec<u8>>,
     }
 
-    let record = sqlx::query_as!(Record, r"SELECT i.nodes, id.data FROM Instance i JOIN InstanceData id ON id.hash = i.data_hash WHERE i.iid = ? LIMIT 1", instance_id)
+    let record = sqlx::query_as!(Record, r"SELECT i.nodes, id.data FROM Instance i JOIN InstanceData id ON id.did = i.data_did WHERE i.iid = ? LIMIT 1", instance_id)
             .fetch_one(db)
             .await
             .map_err(sql_to_err_response)?;
@@ -117,7 +117,7 @@ async fn insert_solution_data(
     let encoded_solution =
         serde_json::to_string(solution.solution()).map_err(debug_to_err_response)?;
 
-    sqlx::query(r#"INSERT IGNORE INTO SolutionData (hash,data) VALUES (?, ?)"#)
+    sqlx::query(r#"INSERT IGNORE INTO SolutionData (hash,data) VALUES (UNHEX(?), ?)"#)
         .bind(&hash)
         .bind(encoded_solution)
         .execute(&mut **tx)
@@ -153,7 +153,7 @@ async fn insert_valid_solution_entry(
     solution_score: NumNodes,
 ) -> HandlerResult<()> {
     sqlx::query(
-        r#"INSERT INTO Solution (sr_uuid,instance_iid, solution_hash,error_code,  score,seconds_computed) VALUES (?, ?,  ?, ?,  ?, ?)"#,
+        r#"INSERT INTO Solution (sr_uuid,instance_iid, solution_hash,error_code,  score,seconds_computed) VALUES (?, ?,  UNHEX(?), ?,  ?, ?)"#,
     )
     .bind(body.run_uuid.to_string())
     .bind(body.instance_id)
@@ -229,12 +229,13 @@ async fn handle_valid_cached_solution(
 
     let mut tx = app_data.db().begin().await.map_err(sql_to_err_response)?;
 
-    let solution_score =
-        sqlx::query_scalar::<_, NumNodes>(r#"SELECT score FROM Solution WHERE solution_hash=?"#)
-            .bind(&solution_hash)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(sql_to_err_response)?;
+    let solution_score = sqlx::query_scalar::<_, NumNodes>(
+        r#"SELECT score FROM Solution WHERE solution_hash=UNHEX(?)"#,
+    )
+    .bind(&solution_hash)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(sql_to_err_response)?;
 
     insert_solver_run_entry(&mut tx, &request).await?;
     insert_valid_solution_entry(&mut tx, &request, &solution_hash, solution_score).await?;
@@ -375,17 +376,18 @@ mod test {
             true
         );
 
-        let hash = sqlx::query_scalar::<_, String>(r"SELECT hash FROM SolutionData")
+        let hash = sqlx::query_scalar::<_, String>(r"SELECT HEX(hash) FROM SolutionData")
             .fetch_one(&pool)
             .await
             .unwrap();
 
-        let count_before =
-            sqlx::query_scalar::<_, i32>(r"SELECT COUNT(*) FROM Solution WHERE solution_hash=?")
-                .bind(&hash)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let count_before = sqlx::query_scalar::<_, i32>(
+            r"SELECT COUNT(*) FROM Solution WHERE solution_hash=UNHEX(?)",
+        )
+        .bind(&hash)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
         assert_eq!(count_before, 1);
 
@@ -402,12 +404,13 @@ mod test {
             true
         );
 
-        let count_after =
-            sqlx::query_scalar::<_, i32>(r"SELECT COUNT(*) FROM Solution WHERE solution_hash=?")
-                .bind(&hash)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let count_after = sqlx::query_scalar::<_, i32>(
+            r"SELECT COUNT(*) FROM Solution WHERE solution_hash=UNHEX(?)",
+        )
+        .bind(&hash)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
         assert_eq!(count_after, count_before + 1);
 

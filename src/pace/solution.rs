@@ -1,4 +1,4 @@
-use sha2::{digest::Output, Digest, Sha256};
+use sha1::{digest::Output, Digest, Sha1};
 
 use super::graph::*;
 use std::{
@@ -126,8 +126,8 @@ impl Solution {
         Ok(covered.len() == n as usize)
     }
 
-    pub fn compute_digest(&self) -> Output<Sha256> {
-        let mut hasher = Sha256::new();
+    pub fn compute_digest(&self) -> Output<Sha1> {
+        let mut hasher = Sha1::new();
 
         for &node in &self.solution {
             hasher.update((node + 1).to_le_bytes());

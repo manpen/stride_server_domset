@@ -70,14 +70,11 @@ struct Response {
 #[allow(non_snake_case)]
 struct InstanceModel {
     iid: i32,
-    data_hash: Option<String>,
     nodes: u32,
     edges: u32,
     name: Option<String>,
     description: Option<String>,
-    submitted_by: Option<String>,
     best_known_solution: Option<u32>,
-    created_at: chrono::DateTime<chrono::Utc>,
     tags: Option<String>,
 }
 
@@ -90,8 +87,6 @@ struct InstanceResult {
     name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    submitted_by: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     best_known_solution: Option<NumNodes>,
     tags: Vec<u32>,
@@ -124,7 +119,10 @@ pub async fn instance_list_handler(
 
     let instances = conditional_query_as!(
         InstanceModel,
-        r#"SELECT i.*, (SELECT MIN(score) FROM Solution WHERE instance_iid=i.iid) as best_known_solution, GROUP_CONCAT(tag_tid) as tags
+        r#"SELECT
+            i.iid, i.nodes, i.edges, i.name, i.description,
+            (SELECT MIN(score) FROM Solution WHERE instance_iid=i.iid) as best_known_solution, 
+            GROUP_CONCAT(tag_tid) as tags
            FROM `Instance` i
            JOIN InstanceTag it ON i.iid = it.instance_iid
            {#tag_filter} 
@@ -140,7 +138,7 @@ pub async fn instance_list_handler(
                SortBy::Name => "name",
                SortBy::Nodes => "nodes",
                SortBy::Edges => "edges",
-               SortBy::CreatedAt => "created_at",
+               SortBy::CreatedAt => "i.created_at",
                SortBy::Score => "best_known_solution",
                SortBy::Difficulty => "best_known_solution",
            },
@@ -148,7 +146,8 @@ pub async fn instance_list_handler(
                SortDirection::Desc => "DESC",
                SortDirection::Asc => "ASC",
            }
-    ).fetch_all(data.db())
+    )
+    .fetch_all(data.db())
     .await
     .map_err(sql_to_err_response)?;
 
@@ -167,7 +166,6 @@ pub async fn instance_list_handler(
                 edges: model.edges,
                 name: model.name.to_owned(),
                 description: model.description.to_owned(),
-                submitted_by: model.submitted_by.to_owned(),
                 best_known_solution: model.best_known_solution,
                 tags,
             }

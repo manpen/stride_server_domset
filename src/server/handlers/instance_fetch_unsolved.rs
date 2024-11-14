@@ -15,14 +15,12 @@ struct InstanceModel {
     #[serde(skip_serializing_if = "Option::is_none")]
     submitted_by: Option<String>,
 
-    data_hash: Option<String>,
+    data_hash: Option<Vec<u8>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<Vec<u8>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     max_compute_seconds: Option<f64>,
-
-    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub async fn instance_fetch_unsolved_handler(
@@ -31,8 +29,8 @@ pub async fn instance_fetch_unsolved_handler(
     // attempt to fetch instance from database
     let mut instance = sqlx::query_as!(
         InstanceModel,
-        r#"SELECT i.*, d.data, MAX(s.seconds_computed) as max_compute_seconds FROM `Instance` i 
-            JOIN `InstanceData` d ON i.data_hash = d.hash
+        r#"SELECT i.iid, i.nodes, i.edges, i.name, i.description, i.submitted_by, d.data, d.hash as data_hash, MAX(s.seconds_computed) as max_compute_seconds FROM `Instance` i 
+            JOIN `InstanceData` d ON i.data_did = d.did
             LEFT JOIN `Solution` s ON i.iid = s.instance_iid
             WHERE s.solution_hash IS NULL
             GROUP BY i.iid

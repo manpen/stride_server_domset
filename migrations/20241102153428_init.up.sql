@@ -2,7 +2,7 @@
 CREATE TABLE
     IF NOT EXISTS InstanceData (
             did INT AUTO_INCREMENT PRIMARY KEY,
-            hash CHAR(64) NOT NULL,
+            hash BINARY(20) NOT NULL,
             data LONGBLOB,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
@@ -12,7 +12,7 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS Instance (
         iid INT AUTO_INCREMENT PRIMARY KEY,
-        data_hash CHAR(64) NOT NULL,
+        data_did INT NOT NULL,
 
         nodes INT UNSIGNED NOT NULL,
         edges INT UNSIGNED NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE
         INDEX `idx_nodes` (`nodes`),
         INDEX `idx_edges` (`edges`),
 
-        FOREIGN KEY (data_hash) REFERENCES InstanceData(hash)
+        FOREIGN KEY (data_did) REFERENCES InstanceData(did)
     );
 
 CREATE TABLE
@@ -62,7 +62,7 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS SolutionData (
             sdid INT AUTO_INCREMENT PRIMARY KEY,
-            hash CHAR(64) NOT NULL,
+            hash BINARY(20) NOT NULL,
             data LONGBLOB,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
             UNIQUE INDEX `idx_hash` (`hash`)
@@ -75,7 +75,7 @@ CREATE TABLE
         sr_uuid VARCHAR(36) NOT NULL,
         instance_iid INT NOT NULL,
 
-        solution_hash CHAR(64),
+        solution_hash BINARY(20),
         error_code INT UNSIGNED,
         score INT UNSIGNED,
         seconds_computed DOUBLE NOT NULL,

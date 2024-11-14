@@ -1,6 +1,10 @@
 use super::{app_state::AppState, handlers::*};
 use axum::{
-    extract::DefaultBodyLimit, handler::HandlerWithoutStateExt, http::StatusCode, routing::{get, post}, Router
+    extract::DefaultBodyLimit,
+    handler::HandlerWithoutStateExt,
+    http::StatusCode,
+    routing::{get, post},
+    Router,
 };
 use std::sync::Arc;
 

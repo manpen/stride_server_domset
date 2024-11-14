@@ -11,14 +11,10 @@ use crate::server::app_state::DbPool;
 #[allow(non_snake_case)]
 struct InstanceModel {
     iid: i32,
-    nodes: u32,
-    edges: u32,
     name: Option<String>,
     description: Option<String>,
     submitted_by: Option<String>,
-    data_hash: Option<String>,
     data: Option<Vec<u8>>,
-    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -36,7 +32,11 @@ async fn fetch_instance(id: u32, db_pool: &DbPool) -> HandlerResult<(InstanceMod
     // attempt to fetch instance from database
     let mut instance = sqlx::query_as!(
         InstanceModel,
-        r#"SELECT i.*, d.data FROM `Instance` i JOIN `InstanceData` d ON i.data_hash = d.hash WHERE i.iid = ? LIMIT 1"#,
+        r#"SELECT 
+            i.iid, i.name, i.description, i.submitted_by, d.data 
+           FROM `Instance` i 
+           JOIN `InstanceData` d ON i.data_did = d.did
+           WHERE i.iid = ? LIMIT 1"#,
         id as i32,
     )
     .fetch_one(db_pool)
@@ -73,7 +73,7 @@ async fn fetch_instance(id: u32, db_pool: &DbPool) -> HandlerResult<(InstanceMod
     Ok((instance, data_string))
 }
 
-fn document_from_instance_and_data(
+fn dimacs_file_from_instance_and_data(
     instance: &InstanceModel,
     data: String,
 ) -> HandlerResult<String> {
@@ -104,7 +104,7 @@ pub async fn instance_download_handler(
     State(data): State<Arc<AppState>>,
 ) -> HandlerResult<impl IntoResponse> {
     let (instance, data) = fetch_instance(id, data.db()).await?;
-    let document = document_from_instance_and_data(&instance, data);
+    let document = dimacs_file_from_instance_and_data(&instance, data);
 
     let header_line = format!("attachment; filename=\"{id}.gr\"");
     let content_disposition = HeaderValue::from_str(&header_line).map_err(debug_to_err_response)?;
@@ -126,8 +126,6 @@ mod tests {
     async fn fetch_instance(pool: DbPool) -> sqlx::Result<()> {
         let (instance, data) = super::fetch_instance(1, &pool).await.unwrap();
         assert_eq!(instance.iid, 1);
-        assert_eq!(instance.nodes, 2);
-        assert_eq!(instance.edges, 1);
         assert_eq!(instance.submitted_by.unwrap(), "tester");
         assert!(data.starts_with("p ds"));
 
@@ -139,21 +137,18 @@ mod tests {
     }
 
     #[test]
-    fn document_from_instance_and_data() {
+    fn dimacs_file_from_instance_and_data() {
         let instance = InstanceModel {
             iid: 1,
-            nodes: 1,
-            edges: 2,
             name: Some(String::from("name")),
             description: None,
             submitted_by: None,
-            data_hash: Some(String::from("hash")),
             data: None,
-            created_at: Default::default(),
         };
         let data = "HelloWorld";
 
-        let document = super::document_from_instance_and_data(&instance, data.to_string()).unwrap();
+        let document =
+            super::dimacs_file_from_instance_and_data(&instance, data.to_string()).unwrap();
         let lines = document.lines().collect::<Vec<&str>>();
         assert_eq!(lines.len(), 2);
         assert!(lines[0].starts_with("c "));

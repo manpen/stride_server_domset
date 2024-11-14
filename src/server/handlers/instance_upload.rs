@@ -1,4 +1,4 @@
-use sha2::{Digest, Sha256};
+use sha1::{Digest, Sha1};
 
 use super::common::*;
 
@@ -77,7 +77,7 @@ fn normalize_dimacs(
 
     let normalized_data = String::from_utf8(normalized_data).map_err(debug_to_err_response)?;
     let hash = {
-        let mut hasher = Sha256::new();
+        let mut hasher = Sha1::new();
         hasher.update(normalized_data.as_bytes());
         format!("{:x}", hasher.finalize())
     };
@@ -94,16 +94,17 @@ pub async fn instance_upload_handler(
     // we need to insert two rows and use a transaction for that
     let mut tx = data.db().begin().await.map_err(sql_to_err_response)?;
 
-    sqlx::query(r#"INSERT INTO InstanceData (hash, data) VALUES (?, ?)"#)
+    let data_did = sqlx::query(r#"INSERT INTO InstanceData (hash, data) VALUES (UNHEX(?), ?)"#)
         .bind(&hash)
         .bind(&normalized_data)
         .execute(&mut *tx)
         .await
-        .map_err(sql_to_err_response)?;
+        .map_err(sql_to_err_response)?
+        .last_insert_id();
 
     // create instance entry
-    let instance_id = sqlx::query(r#"INSERT INTO Instance (data_hash,nodes,edges,name,description,submitted_by) VALUES (?, ?, ?, ?, ?, ?)"#)
-        .bind(&hash)
+    let instance_id = sqlx::query(r#"INSERT INTO Instance (data_did,nodes,edges,name,description,submitted_by) VALUES (?, ?, ?, ?, ?, ?)"#)
+        .bind(data_did)
         .bind(num_nodes)
         .bind(num_edges)
         .bind(body.name)
