@@ -52,8 +52,8 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS SolverRun (
         sr_id INT AUTO_INCREMENT PRIMARY KEY,
-        run_uuid VARCHAR(36) NOT NULL,
-        solver_uuid VARCHAR(36),
+        run_uuid BINARY(16) NOT NULL,
+        solver_uuid BINARY(16),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
         
         UNIQUE INDEX `idx_uuid` (`run_uuid`)
@@ -72,7 +72,7 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS Solution (
         sid INT AUTO_INCREMENT PRIMARY KEY,
-        sr_uuid VARCHAR(36) NOT NULL,
+        sr_uuid BINARY(16) NOT NULL,
         instance_iid INT NOT NULL,
 
         solution_hash BINARY(20),

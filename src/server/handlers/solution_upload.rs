@@ -134,12 +134,14 @@ async fn insert_solver_run_entry(
     body: &SolutionUploadRequest,
 ) -> HandlerResult<()> {
     // store (if not already present) the solver run
-    sqlx::query(r#"INSERT IGNORE INTO SolverRun (run_uuid, solver_uuid) VALUES (?, ?)"#)
-        .bind(body.run_uuid.to_string())
-        .bind(body.solver_uuid.as_ref().map(|x| x.to_string()))
-        .execute(&mut **tx)
-        .await
-        .map_err(sql_to_err_response)?;
+    sqlx::query(
+        r#"INSERT IGNORE INTO SolverRun (run_uuid, solver_uuid) VALUES (UNHEX(?), UNHEX(?))"#,
+    )
+    .bind(body.run_uuid.simple().to_string())
+    .bind(body.solver_uuid.as_ref().map(|x| x.simple().to_string()))
+    .execute(&mut **tx)
+    .await
+    .map_err(sql_to_err_response)?;
 
     debug!(" Processed SolverRun entry");
 
@@ -153,9 +155,9 @@ async fn insert_valid_solution_entry(
     solution_score: NumNodes,
 ) -> HandlerResult<()> {
     sqlx::query(
-        r#"INSERT INTO Solution (sr_uuid,instance_iid, solution_hash,error_code,  score,seconds_computed) VALUES (?, ?,  UNHEX(?), ?,  ?, ?)"#,
+        r#"INSERT INTO Solution (sr_uuid,instance_iid, solution_hash,error_code,  score,seconds_computed) VALUES (UNHEX(?), ?,  UNHEX(?), ?,  ?, ?)"#,
     )
-    .bind(body.run_uuid.to_string())
+    .bind(body.run_uuid.simple().to_string())
     .bind(body.instance_id)
     //
     .bind(solution_hash)
@@ -183,9 +185,9 @@ async fn insert_invalid_solution_entry(
     };
 
     sqlx::query(
-        r#"INSERT INTO Solution (sr_uuid,instance_iid, solution_hash,error_code,  score,seconds_computed) VALUES (?, ?,  NULL, ?,  NULL, ?)"#,
+        r#"INSERT INTO Solution (sr_uuid,instance_iid, solution_hash,error_code,  score,seconds_computed) VALUES (UNHEX(?), ?,  NULL, ?,  NULL, ?)"#,
     )
-    .bind(body.run_uuid.to_string())
+    .bind(body.run_uuid.simple().to_string())
     .bind(body.instance_id)
     .bind(result_type as u32)
     .bind(body.seconds_computed)

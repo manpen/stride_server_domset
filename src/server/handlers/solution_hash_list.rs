@@ -11,11 +11,11 @@ pub async fn solution_hash_list_handler(
 ) -> HandlerResult<impl IntoResponse> {
     let hashes = sqlx::query_scalar!(
         r#"SELECT 
-             s.solution_hash as "hash!: String"
+             HEX(s.solution_hash) as "hash!: String"
         FROM Solution s
         JOIN SolverRun sr ON s.sr_uuid = sr.run_uuid
-        WHERE s.solution_hash IS NOT NULL AND sr.solver_uuid = ?"#,
-        solver_uuid.to_string()
+        WHERE s.solution_hash IS NOT NULL AND sr.solver_uuid = UNHEX(?)"#,
+        solver_uuid.simple().to_string()
     )
     .fetch_all(app_data.db())
     .await
