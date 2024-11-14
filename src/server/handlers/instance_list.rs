@@ -9,20 +9,36 @@ use super::common::*;
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct FilterOptions {
-    pub page: Option<usize>,
-    pub limit: Option<usize>,
+    #[serde(default = "default_value_1")]
+    pub page: usize,
+
+    #[serde(default = "default_value_100")]
+    pub limit: usize,
+
+    #[serde(default)]
     pub tag: Option<u32>,
 
-    pub sort_by: Option<SortBy>,
-    pub sort_direction: Option<SortDirection>,
+    #[serde(default)]
+    pub sort_by: SortBy,
+
+    #[serde(default)]
+    pub sort_direction: SortDirection,
 
     #[serde(default)]
     pub include_tag_list: bool,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+fn default_value_1() -> usize {
+    1
+}
+fn default_value_100() -> usize {
+    100
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SortBy {
+    #[default]
     Id,
     Name,
     Nodes,
@@ -32,24 +48,12 @@ pub enum SortBy {
     Difficulty,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SortDirection {
+    #[default]
     Asc,
     Desc,
-}
-
-impl FilterOptions {
-    fn defaults_for_missing(self) -> Self {
-        Self {
-            page: Some(self.page.unwrap_or(1)),
-            limit: Some(self.limit.unwrap_or(100)),
-            tag: self.tag,
-            sort_by: Some(self.sort_by.unwrap_or(SortBy::Id)),
-            sort_direction: Some(self.sort_direction.unwrap_or(SortDirection::Asc)),
-            include_tag_list: self.include_tag_list,
-        }
-    }
 }
 
 #[derive(Serialize)]
@@ -98,10 +102,9 @@ pub async fn instance_list_handler(
     State(data): State<Arc<AppState>>,
 ) -> HandlerResult<impl IntoResponse> {
     let Query(opts) = opts.unwrap_or_default();
-    let opts = opts.defaults_for_missing();
 
-    let limit = opts.limit.unwrap() as u32;
-    let offset = (opts.page.unwrap().saturating_sub(1) * opts.limit.unwrap()) as u32;
+    let limit = opts.limit as u32;
+    let offset = (opts.page.saturating_sub(1) * opts.limit) as u32;
 
     struct CountRecord {
         cnt: Option<i64>,
@@ -132,7 +135,7 @@ pub async fn instance_list_handler(
                Some(x) => " WHERE it.tag_tid = {x}",
                None => ""
            },
-           #order_field = match opts.sort_by.unwrap() {
+           #order_field = match opts.sort_by {
                SortBy::Id => "iid",
                SortBy::Name => "name",
                SortBy::Nodes => "nodes",
@@ -141,7 +144,7 @@ pub async fn instance_list_handler(
                SortBy::Score => "best_known_solution",
                SortBy::Difficulty => "best_known_solution",
            },
-           #order_dir = match opts.sort_direction.unwrap() {
+           #order_dir = match opts.sort_direction {
                SortDirection::Desc => "DESC",
                SortDirection::Asc => "ASC",
            }
@@ -149,7 +152,7 @@ pub async fn instance_list_handler(
     .await
     .map_err(sql_to_err_response)?;
 
-    let results = instances
+    let results: Vec<InstanceResult> = instances
         .iter()
         .map(|model: &InstanceModel| {
             let tags = model.tags.as_ref().map_or(Vec::new(), |t| {
@@ -169,7 +172,7 @@ pub async fn instance_list_handler(
                 tags,
             }
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     let tags = if opts.include_tag_list {
         Some(get_tag_list(State(data.clone())).await?)
@@ -177,14 +180,13 @@ pub async fn instance_list_handler(
         None
     };
 
-    let json_response = serde_json::to_string(&Response {
+    let json_response = Response {
         status: "ok",
         options: opts,
         total_matches,
         results,
-        tags: None,
-    })
-    .map_err(debug_to_err_response)?;
+        tags,
+    };
 
     Ok(Json(json_response))
 }

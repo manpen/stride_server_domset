@@ -38,11 +38,10 @@ pub async fn tag_list_handler(
 ) -> HandlerResult<impl IntoResponse> {
     let tags = get_tag_list(State(data)).await?;
 
-    Ok(serde_json::ser::to_string(&Response {
+    Ok(Json(Response {
         status: String::from("ok"),
         tags,
-    })
-    .map_err(debug_to_err_response)?)
+    }))
 }
 
 #[cfg(test)]

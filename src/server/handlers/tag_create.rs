@@ -38,10 +38,8 @@ pub async fn tag_create_handler(
 
 #[cfg(test)]
 mod test {
-    use axum::http::Request;
-
     use super::*;
-    use crate::server::{app_state::DbPool, handlers::common::test::unwrap_oneshot_request};
+    use crate::server::app_state::DbPool;
 
     #[sqlx::test]
     async fn success(pool: DbPool) -> sqlx::Result<()> {

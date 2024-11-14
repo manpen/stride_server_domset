@@ -36,23 +36,7 @@ function click_on_tag(tid) {
     fetchData();
 }
 
-function fetchTags() {
-    fetch(`${apiTags}`)
-        .then(response => response.json())
-        .then(data => {
-            tags = {};
-            data.forEach(tag => {
-                tags[tag.tid] = tag;
-            });
-
-            populateTags(data);
-
-            fetchData();
-        })
-        .catch(error => console.error('Error fetching data:', error));
-}
-
-function createTagTag(data, with_counts = false) {
+function createTagElement(data, with_counts = false) {
     const tag = document.createElement('span');
     tag.className = `tag tagstyle${data.style}`;
 
@@ -75,24 +59,35 @@ function populateTags() {
     tagsBody.innerHTML = '';
 
     for (let tid in tags) {
-        tagsBody.appendChild(createTagTag(tags[tid], true));
+        tagsBody.appendChild(createTagElement(tags[tid], true));
     }
 }
 
-function fetchData() {
+function fetchData(include_tags = false) {
     let opts = "page=" + filterOptions["current_page"];
     opts += "&limit=100";
     opts += "&sort_direction=" + filterOptions["direction"];
     opts += "&sort_by=" + filterOptions["order_by"];
 
+    if (include_tags) {
+        opts += "&include_tag_list=true";
+    }
+
     if (filterOptions.tag !== null) {
         opts += "&tag=" + filterOptions.tag;
     }
 
-
     fetch(`${apiInstances}?${opts}`)
         .then(response => response.json())
         .then(data => {
+            if (include_tags) {
+                tags = {};
+                data.tags.forEach(tag => {
+                    tags[tag.tid] = tag;
+                });
+                populateTags();
+            }
+
             populateTable(data.results);
             setupPagination(data.options.page, Math.ceil(data.total_matches / data.options.limit));
         })
@@ -122,7 +117,7 @@ function populateTable(instances) {
                     </td>`;
 
         ins.tags.forEach(tid => {
-            row.querySelector(".tags").appendChild(createTagTag(tags[tid]));
+            row.querySelector(".tags").appendChild(createTagElement(tags[tid]));
         });
 
         tableBody.appendChild(row);
@@ -198,4 +193,4 @@ function setupPagination(current, total) {
 
 }
 
-fetchTags();
+fetchData(include_tags = true);
