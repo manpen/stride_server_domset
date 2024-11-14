@@ -1,6 +1,9 @@
 use sqlx_conditional_queries::conditional_query_as;
 
-use crate::pace::graph::NumNodes;
+use crate::{
+    pace::graph::NumNodes,
+    server::handlers::tag_list::{get_tag_list, TagModel},
+};
 
 use super::common::*;
 
@@ -12,6 +15,9 @@ pub struct FilterOptions {
 
     pub sort_by: Option<SortBy>,
     pub sort_direction: Option<SortDirection>,
+
+    #[serde(default)]
+    pub include_tag_list: bool,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -41,8 +47,19 @@ impl FilterOptions {
             tag: self.tag,
             sort_by: Some(self.sort_by.unwrap_or(SortBy::Id)),
             sort_direction: Some(self.sort_direction.unwrap_or(SortDirection::Asc)),
+            include_tag_list: self.include_tag_list,
         }
     }
+}
+
+#[derive(Serialize)]
+struct Response {
+    status: &'static str,
+    options: FilterOptions,
+    total_matches: Option<i64>,
+    results: Vec<InstanceResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tags: Option<Vec<TagModel>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
@@ -154,12 +171,20 @@ pub async fn instance_list_handler(
         })
         .collect::<Vec<_>>();
 
-    let json_response = serde_json::json!({
-        "status": "success",
-        "options": opts,
-        "total_matches": total_matches,
-        "results": results
-    });
+    let tags = if opts.include_tag_list {
+        Some(get_tag_list(State(data.clone())).await?)
+    } else {
+        None
+    };
+
+    let json_response = serde_json::to_string(&Response {
+        status: "ok",
+        options: opts,
+        total_matches,
+        results,
+        tags: None,
+    })
+    .map_err(debug_to_err_response)?;
 
     Ok(Json(json_response))
 }

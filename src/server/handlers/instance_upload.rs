@@ -12,10 +12,14 @@ pub struct InstanceUploadRequest {
     pub description: Option<String>,
     pub submitted_by: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub ignore_header: Option<bool>,
     pub data: String,
 }
 
-fn normalize_dimacs(data: &str) -> HandlerResult<(NumNodes, NumEdges, String, String)> {
+fn normalize_dimacs(
+    data: &str,
+    check_header: bool,
+) -> HandlerResult<(NumNodes, NumEdges, String, String)> {
     let pace_reader = PaceReader::try_new(data.as_bytes()).map_err(debug_to_err_response)?;
     let num_nodes_per_header = pace_reader.number_of_nodes() as usize;
     let num_edges_per_header = pace_reader.number_of_edges() as usize;
@@ -25,7 +29,7 @@ fn normalize_dimacs(data: &str) -> HandlerResult<(NumNodes, NumEdges, String, St
         match edge {
             Ok(edge) => {
                 let edge = edge.normalized();
-                if edge.max_node() >= num_nodes_per_header as Node {
+                if check_header && edge.max_node() >= num_nodes_per_header as Node {
                     return bad_request_json!("Edge contains node id that is larger than the number of nodes in the header");
                 }
 
@@ -38,7 +42,7 @@ fn normalize_dimacs(data: &str) -> HandlerResult<(NumNodes, NumEdges, String, St
     edges.sort();
     edges.dedup();
 
-    if edges.len() != num_edges_per_header {
+    if check_header && edges.len() != num_edges_per_header {
         return bad_request_json!(
             "Number of edges after deduplication does not match the number of edges in the header"
         );
@@ -84,7 +88,8 @@ pub async fn instance_upload_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<InstanceUploadRequest>,
 ) -> HandlerResult<impl IntoResponse> {
-    let (num_nodes, num_edges, hash, normalized_data) = normalize_dimacs(&body.data)?;
+    let (num_nodes, num_edges, hash, normalized_data) =
+        normalize_dimacs(&body.data, !body.ignore_header.unwrap_or(false))?;
 
     // we need to insert two rows and use a transaction for that
     let mut tx = data.db().begin().await.map_err(sql_to_err_response)?;

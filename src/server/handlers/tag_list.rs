@@ -2,7 +2,7 @@ use super::common::*;
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
 #[allow(non_snake_case)]
-struct TagModel {
+pub struct TagModel {
     tid: i32,
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -11,10 +11,14 @@ struct TagModel {
     num_instances: i64,
 }
 
-pub async fn tag_list_handler(
-    State(data): State<Arc<AppState>>,
-) -> HandlerResult<impl IntoResponse> {
-    let tags = sqlx::query_as!(
+#[derive(Debug, Deserialize, Serialize)]
+struct Response {
+    status: String,
+    tags: Vec<TagModel>,
+}
+
+pub async fn get_tag_list(State(data): State<Arc<AppState>>) -> HandlerResult<Vec<TagModel>> {
+    sqlx::query_as!(
         TagModel,
         r#"SELECT 
             t.tid, t.name, t.description, t.style, 
@@ -26,9 +30,19 @@ pub async fn tag_list_handler(
     )
     .fetch_all(data.db())
     .await
-    .map_err(sql_to_err_response)?;
+    .map_err(sql_to_err_response)
+}
 
-    Ok(Json(tags))
+pub async fn tag_list_handler(
+    State(data): State<Arc<AppState>>,
+) -> HandlerResult<impl IntoResponse> {
+    let tags = get_tag_list(State(data)).await?;
+
+    Ok(serde_json::ser::to_string(&Response {
+        status: String::from("ok"),
+        tags,
+    })
+    .map_err(debug_to_err_response)?)
 }
 
 #[cfg(test)]
@@ -53,9 +67,10 @@ mod test {
         )
         .await;
 
-        let tags: Vec<TagModel> = serde_json::from_slice(body.as_bytes()).unwrap();
+        let resp: Response = serde_json::from_slice(body.as_bytes()).unwrap();
+        let tags = resp.tags;
 
-        assert_eq!(body.len(), 3, "{:?}", body);
+        assert_eq!(tags.len(), 3, "{:?}", body);
         assert_eq!(
             tags.iter().filter(|m| m.num_instances > 0).count(),
             2,
