@@ -55,27 +55,52 @@ function createTagElement(data, with_counts = false) {
 }
 
 function populateTags() {
-    const tagsBody = document.querySelector('#tags');
-    tagsBody.innerHTML = '';
+    const tagSelect = document.querySelector('#tag');
+    tagSelect.innerHTML = '<option value="none">All</option>';
 
     for (let tid in tags) {
-        tagsBody.appendChild(createTagElement(tags[tid], true));
+        let option = document.createElement('option');
+        option.value = tid;
+        option.innerText = tags[tid].name;
+        tagSelect.appendChild(option);
     }
 }
 
-function fetchData(include_tags = false) {
-    let opts = "page=" + filterOptions["current_page"];
-    opts += "&limit=100";
-    opts += "&sort_direction=" + filterOptions["direction"];
-    opts += "&sort_by=" + filterOptions["order_by"];
+function buildFilterList() {
+    let list = [
+        "sort_direction=" + filterOptions["direction"],
+        "sort_by=" + filterOptions["order_by"]
+    ];
+
+    if (document.querySelector("#tag").value != "none") {
+        list.push("tag=" + document.querySelector("#tag").value);
+    }
+
+    for (const id of ["min_nodes", "max_nodes", "min_edges", "max_edges", "min_score", "max_score"]) {
+        let x = document.querySelector("#" + id).value;
+        if (x != "none") {
+            list.push(`${id}=${x}`);
+        }
+    }
+
+    return list;
+}
+
+function fetchData(include_tags = false, include_max_values = false) {
+    let opts = buildFilterList();
+
+    opts.push("page=" + filterOptions["current_page"]);
+    opts.push("limit=100");
 
     if (include_tags) {
-        opts += "&include_tag_list=true";
+        opts.push("include_tag_list=true");
     }
 
-    if (filterOptions.tag !== null) {
-        opts += "&tag=" + filterOptions.tag;
+    if (include_max_values) {
+        opts.push("include_max_values=true");
     }
+
+    opts = opts.join("&");
 
     fetch(`${apiInstances}?${opts}`)
         .then(response => response.json())
@@ -88,7 +113,16 @@ function fetchData(include_tags = false) {
                 populateTags();
             }
 
+            if (include_max_values) {
+                populateMaxValues(data.max_values);
+            }
+
             populateTable(data.results);
+
+            let download_btn = document.querySelector("#download_list");
+            download_btn.innerText = `List of ${data.total_matches} matches`;
+            download_btn.disabled = (data.total_matches == 0);
+
             setupPagination(data.options.page, Math.ceil(data.total_matches / data.options.limit));
         })
         .catch(error => console.error('Error fetching data:', error));
@@ -129,6 +163,85 @@ function populateTable(instances) {
     tableHead.querySelector('#header_' + filterOptions.order_by).classList.add(filterOptions.direction);
 }
 
+function populateMaxValues(max_values) {
+    console.log(max_values);
+
+    function format(num) {
+        if (num < 1000) {
+            return num;
+        } else if (num < 1000000) {
+            return Math.floor(num / 1000) + "K";
+        } else {
+            return Math.floor(num / 1000000) + "M";
+        }
+    }
+
+    function populate(key, word, num) {
+        let limit = Math.pow(10, Math.floor(Math.log10(num)));
+        for (let x = 10; x <= limit; x *= 10) {
+            let option = document.createElement("option");
+            option.value = x;
+            let formatted_x = format(x);
+            option.innerText = `at least ${formatted_x} ${word}`;
+            document.querySelector("#min_" + key).appendChild(option);
+        }
+
+        limit = Math.pow(10, Math.ceil(Math.log10(num)));
+        for (let x = 10; x <= limit; x *= 10) {
+            let option = document.createElement("option");
+            option.value = x;
+            let formatted_x = format(x);
+            option.innerText = `at most ${formatted_x} ${word}`;
+            document.querySelector("#max_" + key).appendChild(option);
+        }
+    }
+
+    populate("nodes", "nodes", max_values.max_nodes);
+    populate("edges", "edges", max_values.max_edges);
+
+    if (max_values.max_solution_score !== null) {
+        populate("score", "nodes in domset", max_values.max_solution_score);
+    } else {
+        document.querySelector("#min_score").disabled = true;
+        document.querySelector("#max_score").disabled = true;
+    }
+
+    for (const id of ["nodes", "edges", "score"]) {
+        for (const minmax of ["min", "max"]) {
+            let k = minmax + "_" + id;
+            console.log(k);
+            document.querySelector('#' + k).addEventListener("change", () => {
+                updateFilters(k);
+            });
+        }
+    }
+
+    document.querySelector("#tag").addEventListener("change", () => {
+        fetchData();
+    });
+}
+
+function updateFilters(key) {
+    let value = document.querySelector("#" + key).value;
+
+    const mm = key.split("_")[0];
+    const id = key.split("_")[1];
+    const alt_key = ((mm == "min") ? "max" : "min") + "_" + id;
+
+    for (let opt of document.querySelectorAll(`#${alt_key} option`)) {
+        if (opt.value == "none") {
+            continue;
+        }
+
+        if (value == "none") {
+            opt.disabled = false;
+        } else {
+            opt.disabled = (mm == "min" && opt.value <= value) || (mm == "max" && opt.value >= value);
+        }
+    }
+
+    fetchData();
+}
 
 function addButton(inner, listener, addClass = null) {
     let button = document.createElement("a");
@@ -193,4 +306,8 @@ function setupPagination(current, total) {
 
 }
 
-fetchData(include_tags = true);
+fetchData(include_tags = true, include_max_values = true);
+document.querySelector("#download_list").onclick = function () {
+    let opts = buildFilterList();
+    window.location.href = `${apiBase}instance_list?${opts.join("&")}`;
+};
