@@ -4,8 +4,11 @@ pub use status::status_handler;
 pub mod instance_upload;
 pub use instance_upload::instance_upload_handler;
 
+pub mod instance_delete;
+pub use instance_delete::instance_delete_handler;
+
 pub mod instance_list;
-pub use instance_list::instance_list_handler;
+pub use instance_list::{instance_list_download_handler, instance_list_handler};
 
 pub mod instance_download;
 pub use instance_download::instance_download_handler;

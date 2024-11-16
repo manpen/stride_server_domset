@@ -21,7 +21,9 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/api/status", get(status_handler))
         .route("/api/instances/new", post(instance_upload_handler))
+        .route("/api/instances/delete/:id", get(instance_delete_handler))
         .route("/api/instances", get(instance_list_handler))
+        .route("/api/instance_list", get(instance_list_download_handler))
         .route(
             "/api/instances/fetch_unsolved",
             get(instance_fetch_unsolved_handler),
