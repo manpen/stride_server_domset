@@ -3,6 +3,7 @@ set -e
 
 PYENV="pyenv"
 SQLITE_DB_FILE="runner.db"
+SQLITE_DATA_FILE="smalldata.db"
 
 . ../.env
 
@@ -28,7 +29,21 @@ mysql2sqlite \
 echo "UPDATE solutiondata SET data = NULL;" \
     | sqlite3 $SQLITE_DB_FILE
 
-echo "VACUUM;" \
-    | sqlite3 $SQLITE_DB_FILE    
 
-mv ${SQLITE_DB_FILE} ../assets/
+mysql2sqlite \
+    -f $SQLITE_DATA_FILE \
+    -d $MYSQL_DATABASE \
+    -u $MYSQL_USER \
+    --mysql-password $MYSQL_PASSWORD \
+    -h $MYSQL_HOST \
+    -P $MYSQL_PORT \
+    -t InstanceData
+
+echo "DELETE FROM instancedata WHERE length(data) > 1000;" \
+    | sqlite3 $SQLITE_DATA_FILE
+
+
+for f in $SQLITE_DATA_FILE $SQLITE_DB_FILE; do
+    echo "VACUUM;" | sqlite3 $f    
+    mv $f ../assets/
+done
