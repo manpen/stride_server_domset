@@ -68,21 +68,17 @@ async fn read_instance_data(db: &DbPool, instance_id: u32) -> HandlerResult<(Num
     let record = sqlx::query_as!(Record, r"SELECT i.nodes, id.data FROM Instance i JOIN InstanceData id ON id.did = i.data_did WHERE i.iid = ? LIMIT 1", instance_id)
             .fetch_one(db)
             .await
-            .map_err(sql_to_err_response)?;
+            ?;
 
-    let instance_reader = PaceReader::try_new(record.data.as_ref().unwrap().as_slice())
-        .map_err(debug_to_err_response)?;
+    let instance_reader = PaceReader::try_new(record.data.as_ref().unwrap().as_slice())?;
 
     if instance_reader.number_of_nodes() != record.nodes {
-        return bad_request_json!("Instance node count mismatch");
+        return error_bad_request!("Instance node count mismatch");
     }
 
     let mut edges = Vec::with_capacity(instance_reader.number_of_edges() as usize);
     for edge in instance_reader {
-        match edge {
-            Ok(edge) => edges.push(edge.normalized()),
-            Err(e) => return Err(debug_to_err_response(e)),
-        }
+        edges.push(edge?.normalized());
     }
 
     Ok((record.nodes as NumNodes, edges))
@@ -95,14 +91,10 @@ async fn verify_solution(
 ) -> HandlerResult<Solution> {
     let (nodes, edges) = read_instance_data(db, instance_id).await?;
 
-    let solution =
-        Solution::from_vec(solution, Some(nodes as NumNodes)).map_err(debug_to_err_response)?;
+    let solution = Solution::from_vec(solution, Some(nodes as NumNodes))?;
 
-    if !solution
-        .valid_domset_for_instance(nodes, edges.into_iter())
-        .map_err(debug_to_err_response)?
-    {
-        return bad_request_json!("Solution is not a valid dominating set for the instance");
+    if !solution.valid_domset_for_instance(nodes, edges.into_iter())? {
+        return error_bad_request!("Solution is not a valid dominating set for the instance");
     }
 
     Ok(solution)
@@ -114,15 +106,13 @@ async fn insert_solution_data(
 ) -> HandlerResult<String> {
     let hash = format!("{:x}", solution.compute_digest());
 
-    let encoded_solution =
-        serde_json::to_string(solution.solution()).map_err(debug_to_err_response)?;
+    let encoded_solution = serde_json::to_string(solution.solution())?;
 
     sqlx::query(r#"INSERT IGNORE INTO SolutionData (hash,data) VALUES (UNHEX(?), ?)"#)
         .bind(&hash)
         .bind(encoded_solution)
         .execute(&mut **tx)
-        .await
-        .map_err(sql_to_err_response)?;
+        .await?;
 
     debug!(" Processed SolutionData entry with hash {hash}");
 
@@ -140,8 +130,7 @@ async fn insert_solver_run_entry(
     .bind(body.run_uuid.simple().to_string())
     .bind(body.solver_uuid.as_ref().map(|x| x.simple().to_string()))
     .execute(&mut **tx)
-    .await
-    .map_err(sql_to_err_response)?;
+    .await?;
 
     debug!(" Processed SolverRun entry");
 
@@ -167,7 +156,7 @@ async fn insert_valid_solution_entry(
     .bind(body.seconds_computed)
     .execute(&mut **tx)
     .await
-    .map_err(sql_to_err_response)?;
+    ?;
 
     debug!(" Successfully inserted record of valid solution");
 
@@ -181,7 +170,7 @@ async fn insert_invalid_solution_entry(
 ) -> HandlerResult<()> {
     if result_type == SolverResultType::Valid {
         error!("result_type indicates valid solution in invalid branch");
-        return bad_request_json!("Invalid solution result");
+        return error_bad_request!("Invalid solution result");
     };
 
     sqlx::query(
@@ -193,7 +182,7 @@ async fn insert_invalid_solution_entry(
     .bind(body.seconds_computed)
     .execute(&mut **tx)
     .await
-    .map_err(sql_to_err_response)?;
+    ?;
 
     debug!(" Successfully inserted record of invalid solution");
 
@@ -210,13 +199,13 @@ async fn handle_valid_new_solution(
     let solution = verify_solution(app_data.db(), request.instance_id, solution_data).await?;
     let solution_score = solution.solution.len() as NumNodes;
 
-    let mut tx = app_data.db().begin().await.map_err(sql_to_err_response)?;
+    let mut tx = app_data.db().begin().await?;
 
     insert_solver_run_entry(&mut tx, &request).await?;
     let solution_hash = insert_solution_data(&mut tx, &solution).await?;
     insert_valid_solution_entry(&mut tx, &request, &solution_hash, solution_score).await?;
 
-    tx.commit().await.map_err(sql_to_err_response)?;
+    tx.commit().await?;
 
     let note_response = serde_json::json!({"status": "success", "solution_hash": solution_hash});
     Ok(Json(note_response))
@@ -229,20 +218,19 @@ async fn handle_valid_cached_solution(
 ) -> HandlerResult<impl IntoResponse> {
     debug!("Handling upload of cached solution data");
 
-    let mut tx = app_data.db().begin().await.map_err(sql_to_err_response)?;
+    let mut tx = app_data.db().begin().await?;
 
     let solution_score = sqlx::query_scalar::<_, NumNodes>(
         r#"SELECT score FROM Solution WHERE solution_hash=UNHEX(?)"#,
     )
     .bind(&solution_hash)
     .fetch_one(&mut *tx)
-    .await
-    .map_err(sql_to_err_response)?;
+    .await?;
 
     insert_solver_run_entry(&mut tx, &request).await?;
     insert_valid_solution_entry(&mut tx, &request, &solution_hash, solution_score).await?;
 
-    tx.commit().await.map_err(sql_to_err_response)?;
+    tx.commit().await?;
 
     let note_response = serde_json::json!({"status": "success", "solution_hash": solution_hash});
     Ok(Json(note_response))
@@ -255,12 +243,12 @@ async fn handle_invalid_solution(
 ) -> HandlerResult<impl IntoResponse> {
     debug!("Handling upload of invalid solution");
 
-    let mut tx = app_data.db().begin().await.map_err(sql_to_err_response)?;
+    let mut tx = app_data.db().begin().await?;
 
     insert_solver_run_entry(&mut tx, &request).await?;
     insert_invalid_solution_entry(&mut tx, &request, result_type).await?;
 
-    tx.commit().await.map_err(sql_to_err_response)?;
+    tx.commit().await?;
 
     let note_response = serde_json::json!({"status": "success"});
     Ok(Json(note_response))
@@ -290,7 +278,7 @@ pub async fn solution_upload_handler(
         | SolverResult::NonCompetitive => handle_invalid_solution(app_state, request, result_type)
             .await?
             .into_response(),
-        SolverResult::Empty => return bad_request_json!("Empty solution result"),
+        SolverResult::Empty => return error_bad_request!("Empty solution result"),
     })
 }
 

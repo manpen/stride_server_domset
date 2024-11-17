@@ -18,7 +18,7 @@ struct Response {
 }
 
 pub async fn get_tag_list(State(data): State<Arc<AppState>>) -> HandlerResult<Vec<TagModel>> {
-    sqlx::query_as!(
+    Ok(sqlx::query_as!(
         TagModel,
         r#"SELECT 
             t.tid, t.name, t.description, t.style, 
@@ -29,8 +29,7 @@ pub async fn get_tag_list(State(data): State<Arc<AppState>>) -> HandlerResult<Ve
         ORDER BY num_instances DESC"#
     )
     .fetch_all(data.db())
-    .await
-    .map_err(sql_to_err_response)
+    .await?)
 }
 
 pub async fn tag_list_handler(

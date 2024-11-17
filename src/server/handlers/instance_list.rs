@@ -172,12 +172,10 @@ async fn count_matches(opts: &FilterOptions, app_data: &Arc<AppState>) -> Handle
 
     builder = append_filters_to_query_builder(builder, opts);
 
-    builder
+    Ok(builder
         .build_query_scalar::<i64>()
         .fetch_one(app_data.db())
-        .await
-        .map_err(sql_to_err_response)
-        .map(|x| x as u32)
+        .await? as u32)
 }
 
 async fn retrieve_instances(
@@ -227,11 +225,10 @@ WHERE "#,
     builder.push(" OFFSET ");
     builder.push_bind(offset);
 
-    builder
+    Ok(builder
         .build_query_as::<InstanceModel>()
         .fetch_all(app_data.db())
-        .await
-        .map_err(sql_to_err_response)
+        .await?)
 }
 
 async fn compute_max_values(app_data: &Arc<AppState>) -> HandlerResult<MaxValues> {
@@ -245,8 +242,7 @@ async fn compute_max_values(app_data: &Arc<AppState>) -> HandlerResult<MaxValues
         r#"SELECT MAX(nodes) as max_nodes, MAX(edges) as max_edges FROM `Instance` i"#,
     )
     .fetch_one(app_data.db())
-    .await
-    .map_err(sql_to_err_response)?;
+    .await?;
 
     let max_solution_score = sqlx::query_scalar::<_, u32>(
             r#"SELECT MIN(score) as cnt FROM Solution s GROUP BY s.instance_iid ORDER BY cnt DESC LIMIT 1"#,
@@ -351,20 +347,15 @@ pub async fn instance_list_download_handler(
         builder
             .build_query_scalar::<i32>()
             .fetch_all(app_data.db())
-            .await
-            .map_err(sql_to_err_response)?
+            .await?
             .into_iter()
             .map(|x| x.to_string())
             .join("\n")
     };
 
-    let document = format!(
-        "% {}\n{list_as_string}",
-        serde_json::to_string(&opts).map_err(debug_to_err_response)?
-    );
+    let document = format!("% {}\n{list_as_string}", serde_json::to_string(&opts)?);
 
-    let content_disposition = HeaderValue::from_str("attachment; filename=\"list.txt\"")
-        .map_err(debug_to_err_response)?;
+    let content_disposition = HeaderValue::from_str("attachment; filename=\"list.txt\"")?;
 
     Ok((
         [

@@ -20,30 +20,27 @@ fn normalize_dimacs(
     data: &str,
     check_header: bool,
 ) -> HandlerResult<(NumNodes, NumEdges, String, String)> {
-    let pace_reader = PaceReader::try_new(data.as_bytes()).map_err(debug_to_err_response)?;
+    let pace_reader = PaceReader::try_new(data.as_bytes())?;
     let num_nodes_per_header = pace_reader.number_of_nodes() as usize;
     let num_edges_per_header = pace_reader.number_of_edges() as usize;
 
     let mut edges = Vec::with_capacity(num_edges_per_header);
     for edge in pace_reader {
-        match edge {
-            Ok(edge) => {
-                let edge = edge.normalized();
-                if check_header && edge.max_node() >= num_nodes_per_header as Node {
-                    return bad_request_json!("Edge contains node id that is larger than the number of nodes in the header");
-                }
-
-                edges.push(edge.normalized())
-            }
-            Err(e) => return Err(debug_to_err_response(e)),
+        let edge = edge?.normalized();
+        if check_header && edge.max_node() >= num_nodes_per_header as Node {
+            return error_bad_request!(
+                "Edge contains node id that is larger than the number of nodes in the header"
+            );
         }
+
+        edges.push(edge.normalized())
     }
 
     edges.sort();
     edges.dedup();
 
     if check_header && edges.len() != num_edges_per_header {
-        return bad_request_json!(
+        return error_bad_request!(
             "Number of edges after deduplication does not match the number of edges in the header"
         );
     }
@@ -72,10 +69,9 @@ fn normalize_dimacs(
     }
 
     let mut normalized_data: Vec<u8> = Vec::with_capacity(data.len());
-    let (num_nodes, num_edges) = pace_writer(&mut normalized_data, PROBLEM_ID, edges.into_iter())
-        .map_err(debug_to_err_response)?;
+    let (num_nodes, num_edges) = pace_writer(&mut normalized_data, PROBLEM_ID, edges.into_iter())?;
 
-    let normalized_data = String::from_utf8(normalized_data).map_err(debug_to_err_response)?;
+    let normalized_data = String::from_utf8(normalized_data)?;
     let hash = {
         let mut hasher = Sha1::new();
         hasher.update(normalized_data.as_bytes());
@@ -92,14 +88,13 @@ pub async fn instance_upload_handler(
         normalize_dimacs(&body.data, !body.ignore_header.unwrap_or(false))?;
 
     // we need to insert two rows and use a transaction for that
-    let mut tx = data.db().begin().await.map_err(sql_to_err_response)?;
+    let mut tx = data.db().begin().await?;
 
     let data_did = sqlx::query(r#"INSERT INTO InstanceData (hash, data) VALUES (UNHEX(?), ?)"#)
         .bind(&hash)
         .bind(&normalized_data)
         .execute(&mut *tx)
-        .await
-        .map_err(sql_to_err_response)?
+        .await?
         .last_insert_id();
 
     // create instance entry
@@ -112,7 +107,7 @@ pub async fn instance_upload_handler(
         .bind(body.submitted_by)
         .execute(&mut *tx)
         .await
-        .map_err(sql_to_err_response)?.last_insert_id();
+        ?.last_insert_id();
 
     for tag in body.tags.as_ref().unwrap_or(&Vec::new()) {
         sqlx::query(r#"INSERT INTO InstanceTag (instance_iid,tag_tid) VALUES (?, (SELECT tid FROM Tag WHERE name=? LIMIT 1))"#)
@@ -120,10 +115,10 @@ pub async fn instance_upload_handler(
             .bind(tag)
             .execute(&mut *tx)
             .await
-            .map_err(sql_to_err_response)?;
+            ?;
     }
 
-    tx.commit().await.map_err(sql_to_err_response)?;
+    tx.commit().await?;
 
     let note_response = serde_json::json!({"status": "success", "instance_id": instance_id});
     Ok(Json(note_response))

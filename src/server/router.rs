@@ -6,6 +6,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+
 use std::sync::Arc;
 
 use tower_http::services::ServeDir;
@@ -21,10 +22,6 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route("/api/status", get(status_handler))
         .route("/api/instances", get(instance_list_handler))
         .route("/api/instance_list", get(instance_list_download_handler))
-        .route(
-            "/api/instances/fetch_unsolved",
-            get(instance_fetch_unsolved_handler),
-        )
         .route(
             "/api/instances/download/:id",
             get(instance_download_handler),

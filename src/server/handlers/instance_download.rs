@@ -40,35 +40,16 @@ async fn fetch_instance(id: u32, db_pool: &DbPool) -> HandlerResult<(InstanceMod
         id as i32,
     )
     .fetch_one(db_pool)
-    .await
-    .map_err(sql_to_err_response)?;
+    .await?;
 
     let data = instance.data.take();
 
     if data.is_none() {
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({
-                "status": "error",
-                "message": "Instance data is missing"
-            })),
-        ));
+        return error_bad_request!("Instance data is missing");
     }
 
     // decode it into utf-8
-    let data_string = match String::from_utf8(data.unwrap()) {
-        Ok(data) => data,
-        Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
-                    "status": "error",
-                    "message": "Instance data is not valid UTF-8",
-                    "error": e.to_string(),
-                })),
-            ));
-        }
-    };
+    let data_string = String::from_utf8(data.unwrap())?;
 
     Ok((instance, data_string))
 }
@@ -89,7 +70,7 @@ fn dimacs_file_from_instance_and_data(
         };
 
         document.push_str("c ");
-        document.push_str(&serde_json::to_string(&header).map_err(debug_to_err_response)?);
+        document.push_str(&serde_json::to_string(&header)?);
         document.push('\n');
     }
 
@@ -107,7 +88,7 @@ pub async fn instance_download_handler(
     let document = dimacs_file_from_instance_and_data(&instance, data);
 
     let header_line = format!("attachment; filename=\"{id}.gr\"");
-    let content_disposition = HeaderValue::from_str(&header_line).map_err(debug_to_err_response)?;
+    let content_disposition = HeaderValue::from_str(&header_line)?;
 
     Ok((
         [
@@ -120,6 +101,8 @@ pub async fn instance_download_handler(
 
 #[cfg(test)]
 mod tests {
+    use axum::http::StatusCode;
+
     use super::*;
 
     #[sqlx::test(fixtures("instances"))]

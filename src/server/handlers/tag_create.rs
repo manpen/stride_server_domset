@@ -15,11 +15,11 @@ pub async fn tag_create_handler(
     let description = body.description.as_ref().map(|s| s.trim());
 
     if name.is_empty() {
-        return bad_request_json!("Tag name is required");
+        return error_bad_request!("Tag name is required");
     }
 
     if name.chars().next().unwrap().is_numeric() {
-        return bad_request_json!("Tag name cannot start with a number");
+        return error_bad_request!("Tag name cannot start with a number");
     }
 
     let tag_id = sqlx::query(r#"INSERT INTO Tag (name,description,style) VALUES (?, ?, ?)"#)
@@ -27,8 +27,7 @@ pub async fn tag_create_handler(
         .bind(description.to_owned())
         .bind(body.style)
         .execute(data.db())
-        .await
-        .map_err(sql_to_err_response)?
+        .await?
         .last_insert_id();
 
     Ok(Json(

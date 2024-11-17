@@ -18,8 +18,7 @@ pub async fn solution_hash_list_handler(
         solver_uuid.simple().to_string()
     )
     .fetch_all(app_data.db())
-    .await
-    .map_err(sql_to_err_response)?;
+    .await?;
 
     debug!(
         "Return {} hashes for solver {uuid:?}",
