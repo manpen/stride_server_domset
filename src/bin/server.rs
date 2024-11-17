@@ -3,7 +3,7 @@ use std::sync::Arc;
 use dotenv::dotenv;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 
-use pace_server::server::{app_state::AppState, router::create_router};
+use stride_server::server::{app_state::AppState, router::create_router};
 
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -32,7 +32,7 @@ async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "pace_server=debug".into()),
+                .unwrap_or_else(|_| "stride_server=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
