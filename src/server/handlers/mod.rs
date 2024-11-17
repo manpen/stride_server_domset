@@ -18,6 +18,11 @@ pub mod instance_download;
 pub use instance_download::instance_download_handler;
 
 #[cfg(feature = "admin-api")]
+pub mod instance_update_meta;
+#[cfg(feature = "admin-api")]
+pub use instance_update_meta::instance_update_meta_handler;
+
+#[cfg(feature = "admin-api")]
 pub mod tag_create;
 #[cfg(feature = "admin-api")]
 pub use tag_create::tag_create_handler;

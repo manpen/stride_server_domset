@@ -30,22 +30,52 @@ pub struct FilterOptions {
     pub tag: Option<u32>,
 
     #[serde(default)]
-    pub min_nodes: Option<u32>,
+    pub nodes_lb: Option<u32>,
+    #[serde(default)]
+    pub nodes_ub: Option<u32>,
 
     #[serde(default)]
-    pub max_nodes: Option<u32>,
+    pub edges_lb: Option<u32>,
+    #[serde(default)]
+    pub edges_ub: Option<u32>,
 
     #[serde(default)]
-    pub min_edges: Option<u32>,
+    pub score_lb: Option<u32>,
+    #[serde(default)]
+    pub score_ub: Option<u32>,
 
     #[serde(default)]
-    pub max_edges: Option<u32>,
+    pub min_deg_lb: Option<u32>,
+    #[serde(default)]
+    pub min_deg_ub: Option<u32>,
 
     #[serde(default)]
-    pub min_solution_score: Option<u32>,
+    pub max_deg_lb: Option<u32>,
+    #[serde(default)]
+    pub max_deg_ub: Option<u32>,
 
     #[serde(default)]
-    pub max_solution_score: Option<u32>,
+    pub num_ccs_lb: Option<u32>,
+    #[serde(default)]
+    pub num_ccs_ub: Option<u32>,
+
+    #[serde(default)]
+    pub nodes_largest_cc_lb: Option<u32>,
+    #[serde(default)]
+    pub nodes_largest_cc_ub: Option<u32>,
+
+    #[serde(default)]
+    pub diameter_lb: Option<u32>,
+    #[serde(default)]
+    pub diameter_ub: Option<u32>,
+
+    #[serde(default)]
+    pub tree_width_lb: Option<u32>,
+    #[serde(default)]
+    pub tree_width_ub: Option<u32>,
+
+    #[serde(default)]
+    pub planar: Option<bool>,
 
     #[serde(default)]
     pub include_tag_list: bool,
@@ -113,6 +143,14 @@ struct InstanceModel {
     description: Option<String>,
     best_known_solution: Option<u32>,
     tags: Option<String>,
+
+    min_deg: Option<u32>,
+    max_deg: Option<u32>,
+    num_ccs: Option<u32>,
+    nodes_largest_cc: Option<u32>,
+    diameter: Option<u32>,
+    tree_width: Option<u32>,
+    planar: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -127,6 +165,20 @@ struct InstanceResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     best_known_solution: Option<NumNodes>,
     tags: Vec<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_deg: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_deg: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    num_ccs: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nodes_largest_cc: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    diameter: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tree_width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    planar: Option<bool>,
 }
 
 fn append_filters_to_query_builder<'a, DB>(
@@ -136,25 +188,37 @@ fn append_filters_to_query_builder<'a, DB>(
 where
     DB: Database,
     u32: sqlx::Encode<'a, DB> + sqlx::Type<DB>,
+    bool: sqlx::Encode<'a, DB> + sqlx::Type<DB>,
 {
-    if let Some(min_nodes) = opts.min_nodes {
-        builder.push(" AND i.nodes >= ");
-        builder.push_bind(min_nodes);
+    macro_rules! append_range_filter {
+        ($key:ident) => {
+            paste::paste! {
+                if let Some(x) = opts.[<$key _lb>] {
+                    builder.push(" AND i.[<$key>] >= ");
+                    builder.push_bind(x);
+                }
+
+                if let Some(x) = opts.[<$key _ub>] {
+                    builder.push(" AND i.[<$key>] <= ");
+                    builder.push_bind(x);
+                }
+            }
+        };
     }
 
-    if let Some(max_nodes) = opts.max_nodes {
-        builder.push(" AND i.nodes <= ");
-        builder.push_bind(max_nodes);
-    }
+    append_range_filter!(nodes);
+    append_range_filter!(edges);
 
-    if let Some(min_edges) = opts.min_edges {
-        builder.push(" AND i.edges >= ");
-        builder.push_bind(min_edges);
-    }
+    append_range_filter!(min_deg);
+    append_range_filter!(max_deg);
+    append_range_filter!(num_ccs);
+    append_range_filter!(nodes_largest_cc);
+    append_range_filter!(diameter);
+    append_range_filter!(tree_width);
 
-    if let Some(max_edges) = opts.max_edges {
-        builder.push(" AND i.edges <= ");
-        builder.push_bind(max_edges);
+    if let Some(x) = opts.planar {
+        builder.push(" AND i.planar = ");
+        builder.push_bind(x);
     }
 
     builder
@@ -183,7 +247,9 @@ async fn retrieve_instances(
     app_data: &Arc<AppState>,
 ) -> HandlerResult<Vec<InstanceModel>> {
     let mut builder = sqlx::QueryBuilder::new(
-        r#"SELECT i.iid, i.nodes, i.edges, i.name, i.description,
+        r#"SELECT 
+        i.iid, i.nodes, i.edges, i.name, i.description,
+        i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.tree_width, i.planar,
     (SELECT MIN(score) FROM Solution WHERE instance_iid=i.iid) as best_known_solution, 
     GROUP_CONCAT(tag_tid) as tags
 FROM `Instance` i
@@ -287,6 +353,13 @@ pub async fn instance_list_handler(
                 name: model.name.to_owned(),
                 description: model.description.to_owned(),
                 best_known_solution: model.best_known_solution,
+                min_deg: model.min_deg,
+                max_deg: model.max_deg,
+                num_ccs: model.num_ccs,
+                nodes_largest_cc: model.nodes_largest_cc,
+                diameter: model.diameter,
+                tree_width: model.tree_width,
+                planar: model.planar,
                 tags,
             }
         })
