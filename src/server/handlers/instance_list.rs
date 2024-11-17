@@ -78,6 +78,9 @@ pub struct FilterOptions {
     pub planar: Option<bool>,
 
     #[serde(default)]
+    pub regular: Option<bool>,
+
+    #[serde(default)]
     pub include_tag_list: bool,
 
     #[serde(default)]
@@ -219,6 +222,14 @@ where
     if let Some(x) = opts.planar {
         builder.push(" AND i.planar = ");
         builder.push_bind(x);
+    }
+
+    if let Some(x) = opts.regular {
+        if x {
+            builder.push(" AND i.min_deg = i.max_deg ");
+        } else {
+            builder.push(" AND i.min_deg != i.max_deg ");
+        }
     }
 
     builder
