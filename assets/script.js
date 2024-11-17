@@ -178,21 +178,35 @@ function populateMaxValues(max_values) {
 
     function populate(key, word, num) {
         let limit = Math.pow(10, Math.floor(Math.log10(num)));
-        for (let x = 10; x <= limit; x *= 10) {
-            let option = document.createElement("option");
-            option.value = x;
-            let formatted_x = format(x);
-            option.innerText = `at least ${formatted_x} ${word}`;
-            document.querySelector("#min_" + key).appendChild(option);
+        for (let bx = 10; bx <= limit; bx *= 10) {
+            for (const s of [1, 2, 5]) {
+                const x = bx * s;
+                if (x > num) {
+                    break;
+                }
+
+                let option = document.createElement("option");
+                option.value = x;
+                let formatted_x = format(x);
+                option.innerText = `at least ${formatted_x} ${word}`;
+                document.querySelector("#min_" + key).appendChild(option);
+            }
         }
 
         limit = Math.pow(10, Math.ceil(Math.log10(num)));
-        for (let x = 10; x <= limit; x *= 10) {
-            let option = document.createElement("option");
-            option.value = x;
-            let formatted_x = format(x);
-            option.innerText = `at most ${formatted_x} ${word}`;
-            document.querySelector("#max_" + key).appendChild(option);
+        for (let bx = 10; bx <= limit; bx *= 10) {
+            for (const s of [1, 2, 5]) {
+                const x = bx * s;
+                let option = document.createElement("option");
+                option.value = x;
+                let formatted_x = format(x);
+                option.innerText = `at most ${formatted_x} ${word}`;
+                document.querySelector("#max_" + key).appendChild(option);
+
+                if (x > num) {
+                    return;
+                }
+            }
         }
     }
 
@@ -236,7 +250,7 @@ function updateFilters(key) {
         if (value == "none") {
             opt.disabled = false;
         } else {
-            opt.disabled = (mm == "min" && opt.value <= value) || (mm == "max" && opt.value >= value);
+            opt.disabled = (mm == "min" && opt.value < value) || (mm == "max" && opt.value > value);
         }
     }
 
