@@ -1,10 +1,14 @@
 pub mod status;
 pub use status::status_handler;
 
+#[cfg(feature = "admin-api")]
 pub mod instance_upload;
+#[cfg(feature = "admin-api")]
 pub use instance_upload::instance_upload_handler;
 
+#[cfg(feature = "admin-api")]
 pub mod instance_delete;
+#[cfg(feature = "admin-api")]
 pub use instance_delete::instance_delete_handler;
 
 pub mod instance_list;
@@ -16,7 +20,9 @@ pub use instance_download::instance_download_handler;
 pub mod instance_fetch_unsolved;
 pub use instance_fetch_unsolved::instance_fetch_unsolved_handler;
 
+#[cfg(feature = "admin-api")]
 pub mod tag_create;
+#[cfg(feature = "admin-api")]
 pub use tag_create::tag_create_handler;
 
 pub mod tag_list;

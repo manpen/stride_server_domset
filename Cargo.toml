@@ -3,6 +3,9 @@ name = "pace_server"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+admin-api = []
+
 [dependencies]
 axum = { version = "0.7.7", features = ["multipart"] }
 dotenv = "0.15.0"
