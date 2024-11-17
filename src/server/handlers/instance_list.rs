@@ -270,7 +270,8 @@ async fn retrieve_instances(
     let mut builder = sqlx::QueryBuilder::new(
         r#"SELECT 
         i.iid, i.nodes, i.edges, i.name, i.description,
-        i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.tree_width, i.planar,
+        i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.tree_width, 
+        i.planar, i.bipartite,
     (SELECT MIN(score) FROM Solution WHERE instance_iid=i.iid) as best_known_solution, 
     GROUP_CONCAT(tag_tid) as tags
 FROM `Instance` i
