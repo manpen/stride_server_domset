@@ -22,8 +22,11 @@ pub struct UpdateRequest {
     diameter: Option<u32>,
     #[serde(default)]
     tree_width: Option<u32>,
+
     #[serde(default)]
     planar: Option<bool>,
+    #[serde(default)]
+    bipartite: Option<bool>,
 }
 
 async fn check_params(app_data: &Arc<AppState>, body: &UpdateRequest) -> HandlerResult<()> {
@@ -109,6 +112,7 @@ async fn update_record(app_data: &Arc<AppState>, body: &UpdateRequest) -> Handle
     process!(diameter);
     process!(tree_width);
     process!(planar);
+    process!(bipartite);
 
     if !any_is_set {
         return error_bad_request!("No fields to update");
@@ -117,7 +121,7 @@ async fn update_record(app_data: &Arc<AppState>, body: &UpdateRequest) -> Handle
     builder.push(" WHERE iid = ");
     builder.push_bind(body.iid);
 
-    let result = builder.build().execute(app_data.db()).await?;
+    builder.build().execute(app_data.db()).await?;
 
     Ok(())
 }
@@ -174,6 +178,7 @@ mod test {
     test_field!(diameter, 6, u32);
     test_field!(tree_width, 7, u32);
     test_field!(planar, true, bool);
+    test_field!(bipartite, true, bool);
 
     #[sqlx::test(fixtures("instances"))]
     async fn test_multiple(pool: DbPool) -> sqlx::Result<()> {

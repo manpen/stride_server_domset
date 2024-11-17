@@ -8,6 +8,7 @@ ALTER TABLE Instance
     ADD COLUMN num_ccs INT UNSIGNED,
     ADD COLUMN nodes_largest_cc INT UNSIGNED,
     ADD COLUMN planar BOOLEAN,
+    ADD COLUMN bipartite BOOLEAN,
     ADD COLUMN diameter INT UNSIGNED,
     ADD COLUMN tree_width INT UNSIGNED;
 

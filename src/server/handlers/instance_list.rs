@@ -78,6 +78,9 @@ pub struct FilterOptions {
     pub planar: Option<bool>,
 
     #[serde(default)]
+    pub bipartite: Option<bool>,
+
+    #[serde(default)]
     pub regular: Option<bool>,
 
     #[serde(default)]
@@ -154,6 +157,7 @@ struct InstanceModel {
     diameter: Option<u32>,
     tree_width: Option<u32>,
     planar: Option<bool>,
+    bipartite: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -182,6 +186,7 @@ struct InstanceResult {
     tree_width: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     planar: Option<bool>,
+    bipartite: Option<bool>,
 }
 
 fn append_filters_to_query_builder<'a, DB>(
@@ -221,6 +226,11 @@ where
 
     if let Some(x) = opts.planar {
         builder.push(" AND i.planar = ");
+        builder.push_bind(x);
+    }
+
+    if let Some(x) = opts.bipartite {
+        builder.push(" AND i.bipartite = ");
         builder.push_bind(x);
     }
 
@@ -371,6 +381,7 @@ pub async fn instance_list_handler(
                 diameter: model.diameter,
                 tree_width: model.tree_width,
                 planar: model.planar,
+                bipartite: model.bipartite,
                 tags,
             }
         })
