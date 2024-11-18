@@ -6,3 +6,9 @@
 Cargo.lock
 *.db
 *.db.gz
+.pyenv
+pyenv
+*.ipynb_checkpoints
+*.ipynb
+*.http
+*.py
