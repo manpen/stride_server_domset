@@ -122,8 +122,6 @@ function populateTable(instances) {
         const row = document.createElement('tr');
 
         ins.regular = (ins.min_deg == ins.max_deg);
-        score = ins.best_known_solution ? ins.best_known_solution : 'n/a';
-
 
         function add_td(key, fmt = "num", if_unknown = "?", order_by_key = null) {
             let value = ins[key];
@@ -172,7 +170,7 @@ function populateTable(instances) {
 
         add_td("nodes");
         add_td("edges");
-        add_td("best_known_solution", "num", "❓", "score");
+        add_td("best_score", "num", "❓");
         add_td("min_deg");
         add_td("max_deg");
         add_td("regular", "bool");
@@ -215,11 +213,18 @@ function populateMaxValues(max_values) {
 
     function populate(key, word) {
         const num = max_values[key];
+
+        document.querySelector(`#constr_${key}_lb`).disabled = (num === null);
+        document.querySelector(`#constr_${key}_ub`).disabled = (num === null);
+
+        if (num === null) {
+            return;
+        }
+
         let limit = Math.pow(10, Math.floor(Math.log10(num)));
         for (let bx = 1; bx <= limit; bx *= 10) {
             for (const s of [1, 2, 5]) {
                 const x = bx * s;
-                if (x == 1) { continue; }
                 if (x > num) {
                     break;
                 }
@@ -236,7 +241,6 @@ function populateMaxValues(max_values) {
         for (let bx = 1; bx <= limit; bx *= 10) {
             for (const s of [1, 2, 5]) {
                 const x = bx * s;
-                if (x == 1) { continue; }
                 let option = document.createElement("option");
                 option.value = x;
                 let formatted_x = format(x);
@@ -256,13 +260,7 @@ function populateMaxValues(max_values) {
     populate("max_deg", "max degree of $");
     populate("num_ccs", "$ connected comps.");
     populate("nodes_largest_cc", "$ nodes in largest cc");
-
-    if (max_values.score !== null) {
-        populate("score", "$ nodes in domset");
-    } else {
-        document.querySelector("#score_lb").disabled = true;
-        document.querySelector("#score_ub").disabled = true;
-    }
+    populate("best_score", "$ nodes in domset");
 }
 
 function updateBoolFilters(key, elem) {

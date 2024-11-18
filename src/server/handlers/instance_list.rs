@@ -40,9 +40,9 @@ pub struct FilterOptions {
     pub edges_ub: Option<u32>,
 
     #[serde(default)]
-    pub score_lb: Option<u32>,
+    pub best_score_lb: Option<u32>,
     #[serde(default)]
-    pub score_ub: Option<u32>,
+    pub best_score_ub: Option<u32>,
 
     #[serde(default)]
     pub min_deg_lb: Option<u32>,
@@ -106,7 +106,8 @@ pub enum SortBy {
     Nodes,
     Edges,
     CreatedAt,
-    Score,
+    #[serde(alias = "best_score")] 
+    BestScore,
     Difficulty,
     #[serde(alias = "min_deg")] 
     MinDeg,
@@ -133,8 +134,8 @@ impl SortBy {
             SortBy::Nodes => "nodes",
             SortBy::Edges => "edges",
             SortBy::CreatedAt => "i.created_at",
-            SortBy::Score => "best_known_solution",
-            SortBy::Difficulty => "best_known_solution", // TODO: this is not what we want
+            SortBy::BestScore => "best_score",
+            SortBy::Difficulty => "best_score", // TODO: this is not what we want
             SortBy::MinDeg => "min_deg",
             SortBy::MaxDeg => "max_deg",
             SortBy::AvgDeg => "edges / nodes",
@@ -161,7 +162,7 @@ pub enum SortDirection {
 struct MaxValues {
     nodes: Option<u32>,
     edges: Option<u32>,
-    score: Option<u32>,
+    best_score: Option<u32>,
 
     min_deg : Option<u32>,
     max_deg : Option<u32>,
@@ -194,7 +195,7 @@ struct InstanceModel {
     edges: u32,
     name: Option<String>,
     description: Option<String>,
-    best_known_solution: Option<u32>,
+    best_score: Option<u32>,
     tags: Option<String>,
 
     min_deg: Option<u32>,
@@ -219,7 +220,7 @@ struct InstanceResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    best_known_solution: Option<NumNodes>,
+    best_score: Option<NumNodes>,
     tags: Vec<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     min_deg: Option<u32>,
@@ -270,6 +271,7 @@ where
 
     append_range_filter!(nodes);
     append_range_filter!(edges);
+    append_range_filter!(best_score);
 
     append_range_filter!(min_deg);
     append_range_filter!(max_deg);
@@ -323,14 +325,13 @@ async fn retrieve_instances(
 ) -> HandlerResult<Vec<InstanceModel>> {
     let mut builder = sqlx::QueryBuilder::new(
         r#"SELECT 
-        i.iid, i.nodes, i.edges, i.name, i.description,
-        i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.treewidth, 
-        i.planar, i.bipartite,
-    (SELECT MIN(score) FROM Solution WHERE instance_iid=i.iid) as best_known_solution, 
-    GROUP_CONCAT(tag_tid) as tags
-FROM `Instance` i
-JOIN InstanceTag it ON i.iid = it.instance_iid
-WHERE "#,
+            i.iid, i.nodes, i.edges, i.name, i.description, i.best_score,
+            i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.treewidth, 
+            i.planar, i.bipartite,
+        GROUP_CONCAT(tag_tid) as tags
+        FROM `Instance` i
+        JOIN InstanceTag it ON i.iid = it.instance_iid
+        WHERE "#,
     );
 
     if let Some(tid) = opts.tag {
@@ -366,7 +367,7 @@ WHERE "#,
 }
 
 async fn compute_max_values(app_data: &Arc<AppState>) -> HandlerResult<MaxValues> {
-    let mut max_values = sqlx::query_as!(
+    Ok(sqlx::query_as!(
         MaxValues,
         r#"SELECT 
             MAX(nodes)     as nodes,
@@ -375,21 +376,12 @@ async fn compute_max_values(app_data: &Arc<AppState>) -> HandlerResult<MaxValues
             MAX(max_deg)   as max_deg,
             MAX(num_ccs)   as num_ccs,
             MAX(treewidth) as treewidth,
-            NULL           as "score: u32",
+            MAX(best_score)as best_score,
             MAX(nodes_largest_cc) as nodes_largest_cc
         FROM `Instance` i"#,
     )
     .fetch_one(app_data.db())
-    .await?;
-
-    max_values.score = sqlx::query_scalar::<_, u32>(
-            r#"SELECT MIN(score) as cnt FROM Solution s GROUP BY s.instance_iid ORDER BY cnt DESC LIMIT 1"#,
-        )
-        .fetch_one(app_data.db())
-        .await
-        .ok();
-
-    Ok(max_values)
+    .await?)
 }
 
 pub async fn instance_list_handler(
@@ -421,7 +413,7 @@ pub async fn instance_list_handler(
                 edges: model.edges,
                 name: model.name.to_owned(),
                 description: model.description.to_owned(),
-                best_known_solution: model.best_known_solution,
+                best_score: model.best_score,
                 min_deg: model.min_deg,
                 max_deg: model.max_deg,
                 num_ccs: model.num_ccs,

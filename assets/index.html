@@ -101,17 +101,6 @@
         th.sortable {
             cursor: pointer;
         }
-
-        #header_id,
-        #header_tools {
-            width: 5em;
-        }
-
-        #header_nodes,
-        #header_edges,
-        #header_score {
-            width: 10em;
-        }
     </style>
 </head>
 
@@ -231,12 +220,12 @@
         <label>Size of best solution</label>
     </div>
     <div class="col-5">
-        <select class="form-control" id="constr_score_lb">
+        <select class="form-control" id="constr_best_score_lb">
             <option value="none">Minimal Solution Size</option>
         </select>
         </div>
         <div class="col-5">
-        <select class="form-control" id="constr_score_ub">
+        <select class="form-control" id="constr_best_score_ub">
             <option value="none">Maximal Solution Size</option>
         </select>
         </div>
@@ -316,7 +305,7 @@
                     <th scope="col" id="header_name" class="sortable">Instance</th>
                     <th scope="col" id="header_nodes" class="sortable num">Nodes</th>
                     <th scope="col" id="header_edges" class="sortable num">Edges</th>
-                    <th scope="col" id="header_score" class="sortable num rot"><span>Best<br />DomSet</span></th>
+                    <th scope="col" id="header_best_score" class="sortable num rot"><span>Best<br />DomSet</span></th>
                     <th scope="col" id="header_min_deg" class="sortable num rot"><span>Min Deg</span></th>
                     <th scope="col" id="header_max_deg" class="sortable num rot"><span>Max Deg</span></th>
                     <th scope="col" id="header_regular" class="sortable bool rot"><span>Reg ular</span></th>

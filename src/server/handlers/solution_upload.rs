@@ -189,6 +189,24 @@ async fn insert_invalid_solution_entry(
     Ok(())
 }
 
+async fn update_instance_score(
+    tx: &mut DbTransaction<'_>,
+    instance_iid : u32,
+    new_score : u32,
+) -> HandlerResult<()> {
+    sqlx::query(
+        r#"UPDATE Instance SET best_score=? WHERE iid=? AND (best_score > ? OR best_score IS NULL)"#,
+    )
+    .bind(new_score)
+    .bind(instance_iid)
+    .bind(new_score)
+    .execute(&mut **tx)
+    .await
+    ?;
+
+    Ok(())
+}
+
 async fn handle_valid_new_solution(
     app_data: Arc<AppState>,
     request: SolutionUploadRequest,
@@ -204,6 +222,8 @@ async fn handle_valid_new_solution(
     insert_solver_run_entry(&mut tx, &request).await?;
     let solution_hash = insert_solution_data(&mut tx, &solution).await?;
     insert_valid_solution_entry(&mut tx, &request, &solution_hash, solution_score).await?;
+
+    update_instance_score(&mut tx, request.instance_id, solution_score).await?;
 
     tx.commit().await?;
 
