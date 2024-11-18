@@ -297,7 +297,7 @@ mod test {
         let solution = Solution::from_vec((1..10).collect(), None).unwrap();
         assert_eq!(
             format!("{:x}", solution.compute_digest()),
-            "e3d25e7590edd76206831801f67d1ee231d8b90a2bb4bfe31a152be21d2f536c"
+            "89d9014041ecdcfe552d725a76a07395d272bded"
         );
     }
 }
