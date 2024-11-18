@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-docker-compose -f docker-compose-testing.yml up -d
 . ./testing.env
+
+export DATABASE_URL=$DATABASE_URL
 sqlx migrate run
-RUST_BACKTRACE=1 RUST_LOG="debug" cargo test $@
+#RUST_BACKTRACE=1 
+RUST_LOG="debug" cargo test $@
