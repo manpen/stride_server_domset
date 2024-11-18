@@ -24,3 +24,6 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-test = "0.2.5"
 uuid = { version = "1.11.0", features = ["serde", "v4"] }
+
+[dev-dependencies]
+strum = { version = "0.26.3", features = ["derive"] }

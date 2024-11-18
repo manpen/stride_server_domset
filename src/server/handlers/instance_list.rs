@@ -12,7 +12,7 @@ use crate::{
 
 use super::common::*;
 
-#[derive(Deserialize, Serialize, Debug, Default)]
+#[derive(Clone, Deserialize, Serialize, Debug, Default)]
 pub struct FilterOptions {
     #[serde(default = "default_value_1")]
     pub page: usize,
@@ -98,6 +98,7 @@ fn default_value_100() -> usize {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
+#[cfg_attr(test, derive(strum::EnumIter))]
 #[serde(rename_all = "lowercase")]
 pub enum SortBy {
     #[default]
@@ -106,18 +107,18 @@ pub enum SortBy {
     Nodes,
     Edges,
     CreatedAt,
-    #[serde(alias = "best_score")] 
+    #[serde(alias = "best_score")]
     BestScore,
     Difficulty,
-    #[serde(alias = "min_deg")] 
+    #[serde(alias = "min_deg")]
     MinDeg,
-    #[serde(alias = "max_deg")] 
+    #[serde(alias = "max_deg")]
     MaxDeg,
-    #[serde(alias = "avg_deg")] 
+    #[serde(alias = "avg_deg")]
     AvgDeg,
-    #[serde(alias = "num_ccs")] 
+    #[serde(alias = "num_ccs")]
     NumCCs,
-    #[serde(alias = "nodes_largest_cc")] 
+    #[serde(alias = "nodes_largest_cc")]
     NodesLargestCC,
     Diameter,
     Treewidth,
@@ -143,7 +144,7 @@ impl SortBy {
             SortBy::NodesLargestCC => "nodes_largest_cc",
             SortBy::Diameter => "diameter",
             SortBy::Bipartite => "bipartite",
-            SortBy::Planar => "planar", 
+            SortBy::Planar => "planar",
             SortBy::Treewidth => "treewidth",
             SortBy::Regular => "min_deg=max_deg",
         }
@@ -164,13 +165,13 @@ struct MaxValues {
     edges: Option<u32>,
     best_score: Option<u32>,
 
-    min_deg : Option<u32>,
-    max_deg : Option<u32>,
+    min_deg: Option<u32>,
+    max_deg: Option<u32>,
 
-    num_ccs : Option<u32>,
-    nodes_largest_cc : Option<u32>,
+    num_ccs: Option<u32>,
+    nodes_largest_cc: Option<u32>,
 
-    treewidth : Option<u32>,
+    treewidth: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -207,8 +208,6 @@ struct InstanceModel {
     planar: Option<bool>,
     bipartite: Option<bool>,
 }
-
-
 
 #[derive(Debug, Deserialize, Serialize)]
 struct InstanceResult {
@@ -491,4 +490,102 @@ pub async fn instance_list_download_handler(
         ],
         document,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::app_state::DbPool;
+    use strum::IntoEnumIterator;
+
+    #[sqlx::test(fixtures("instances"))]
+    async fn instance_list_handler_order_by(db_pool: DbPool) -> sqlx::Result<()> {
+        for order in SortBy::iter() {
+            let req = FilterOptions {
+                sort_by: order,
+                ..Default::default()
+            };
+
+            let state = Arc::new(AppState::new(db_pool.clone()));
+            let resp = super::instance_list_handler(Some(Query(req)), State(state)).await;
+
+            assert!(resp.unwrap().into_response().status().is_success());
+        }
+
+        Ok(())
+    }
+
+    #[sqlx::test(fixtures("instances"))]
+    async fn instance_list_download_handler(db_pool: DbPool) -> sqlx::Result<()> {
+        for order in SortBy::iter() {
+            let req = FilterOptions {
+                sort_by: order,
+                ..Default::default()
+            };
+
+            let state = Arc::new(AppState::new(db_pool.clone()));
+            let resp = super::instance_list_handler(Some(Query(req)), State(state)).await;
+
+            assert!(resp.unwrap().into_response().status().is_success());
+        }
+
+        Ok(())
+    }
+
+    macro_rules! test_filter_option {
+        ($name:ident, $values:expr) => {paste::paste! {
+            #[sqlx::test(fixtures("instances"))]
+            async fn [<filter_option_list_ $name>](db_pool: DbPool) -> sqlx::Result<()> {
+                for v in $values {
+                    let req = FilterOptions {
+                        $name: Some(v),
+                        ..Default::default()
+                    };
+
+                    let state = Arc::new(AppState::new(db_pool.clone()));
+                    let resp = super::instance_list_handler(Some(Query(req)), State(state)).await;
+                    assert!(resp.unwrap().into_response().status().is_success());
+                }
+                Ok(())
+            }
+
+            #[sqlx::test(fixtures("instances"))]
+            async fn [<filter_option_download_ $name>](db_pool: DbPool) -> sqlx::Result<()> {
+                for v in $values {
+                    let req = FilterOptions {
+                        $name: Some(v),
+                        ..Default::default()
+                    };
+
+                    let state = Arc::new(AppState::new(db_pool.clone()));
+                    let resp = super::instance_list_download_handler(Some(Query(req)), State(state)).await;
+                    assert!(resp.unwrap().into_response().status().is_success());
+                }
+                Ok(())
+            }
+        }};
+    }
+
+    test_filter_option!(tag, [0, 1]);
+    test_filter_option!(nodes_lb, [0, 1]);
+    test_filter_option!(nodes_ub, [0, 1]);
+    test_filter_option!(edges_lb, [0, 1]);
+    test_filter_option!(edges_ub, [0, 1]);
+    test_filter_option!(best_score_lb, [0, 1]);
+    test_filter_option!(best_score_ub, [0, 1]);
+    test_filter_option!(min_deg_lb, [0, 1]);
+    test_filter_option!(min_deg_ub, [0, 1]);
+    test_filter_option!(max_deg_lb, [0, 1]);
+    test_filter_option!(max_deg_ub, [0, 1]);
+    test_filter_option!(num_ccs_lb, [0, 1]);
+    test_filter_option!(num_ccs_ub, [0, 1]);
+    test_filter_option!(nodes_largest_cc_lb, [0, 1]);
+    test_filter_option!(nodes_largest_cc_ub, [0, 1]);
+    test_filter_option!(diameter_lb, [0, 1]);
+    test_filter_option!(diameter_ub, [0, 1]);
+    test_filter_option!(treewidth_lb, [0, 1]);
+    test_filter_option!(treewidth_ub, [0, 1]);
+    test_filter_option!(planar, [false, true]);
+    test_filter_option!(bipartite, [false, true]);
+    test_filter_option!(regular, [false, true]);
 }

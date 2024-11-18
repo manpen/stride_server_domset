@@ -191,8 +191,8 @@ async fn insert_invalid_solution_entry(
 
 async fn update_instance_score(
     tx: &mut DbTransaction<'_>,
-    instance_iid : u32,
-    new_score : u32,
+    instance_iid: u32,
+    new_score: u32,
 ) -> HandlerResult<()> {
     sqlx::query(
         r#"UPDATE Instance SET best_score=? WHERE iid=? AND (best_score > ? OR best_score IS NULL)"#,

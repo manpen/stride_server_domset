@@ -44,7 +44,6 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
             get(solution_hash_list_handler),
         );
 
-
     let service_404 = handle_404.into_service();
     router
         .layer(DefaultBodyLimit::max(100usize << 20))
