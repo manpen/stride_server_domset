@@ -4,3 +4,5 @@
 .env
 *.sql.bz2
 Cargo.lock
+*.db
+*.db.gz
