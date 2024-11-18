@@ -11,31 +11,6 @@ let filterOptions = {
     tag: null
 };
 
-function sort_by(name) {
-    if (filterOptions.order_by == name) {
-        filterOptions.direction = (filterOptions.direction == "asc") ? "desc" : "asc";
-    } else {
-        filterOptions.order_by = name;
-        filterOptions.direction = "asc";
-    }
-
-    fetchData();
-}
-
-function click_on_tag(tid) {
-    console.log(tid);
-    if (filterOptions.tag == tid) {
-        // remove
-        filterOptions.tag = null;
-    } else {
-        filterOptions.current_page = 1;
-        filterOptions.tag = tid;
-    }
-
-    populateTags();
-    fetchData();
-}
-
 function createTagElement(data, with_counts = false) {
     const tag = document.createElement('span');
     tag.className = `tag tagstyle${data.style}`;
@@ -48,8 +23,6 @@ function createTagElement(data, with_counts = false) {
 
     tag.innerText = data.name +
         (with_counts ? ` (${data.num_instances})` : '');
-
-    tag.onclick = function (e) { click_on_tag(data.tid); };
 
     return tag;
 }
@@ -76,18 +49,26 @@ function buildFilterList() {
         list.push("tag=" + document.querySelector("#tag").value);
     }
 
-    for (const id of ["min_nodes", "max_nodes", "min_edges", "max_edges", "min_score", "max_score"]) {
-        let x = document.querySelector("#" + id).value;
-        if (x != "none") {
-            list.push(`${id}=${x}`);
+    document.querySelectorAll(".form-control").forEach((e) => {
+        if (e.id.startsWith("constr_")) {
+            if (e.value == "none") { return; }
+            const key = e.id.replace("constr_", "");
+            list.push(`${key}=${e.value}`);
+        } else if (e.id.startsWith("bool_constr_")) {
+            const key = e.id.replace("bool_constr_", "");
+            if (e.value == "none") { return; }
+            list.push(`${key}=${e.value}`);
         }
-    }
+    });
+
 
     return list;
 }
 
 function fetchData(include_tags = false, include_max_values = false) {
     let opts = buildFilterList();
+
+    document.querySelector("#reset_filters").disabled = (opts.length == 2);
 
     opts.push("page=" + filterOptions["current_page"]);
     opts.push("limit=100");
@@ -101,6 +82,12 @@ function fetchData(include_tags = false, include_max_values = false) {
     }
 
     opts = opts.join("&");
+
+    {
+        const cls = "table-primary";
+        document.querySelectorAll(`#instances th.${cls}`).forEach((e) => { e.classList.remove(cls) });
+        document.querySelector(`#instances #header_${filterOptions.order_by}`).classList.add(cls);
+    }
 
     fetch(`${apiInstances}?${opts}`)
         .then(response => response.json())
@@ -120,7 +107,7 @@ function fetchData(include_tags = false, include_max_values = false) {
             populateTable(data.results);
 
             let download_btn = document.querySelector("#download_list");
-            download_btn.innerText = `List of ${data.total_matches} matches`;
+            download_btn.innerText = `Download list of ${data.total_matches} matches`;
             download_btn.disabled = (data.total_matches == 0);
 
             setupPagination(data.options.page, Math.ceil(data.total_matches / data.options.limit));
@@ -134,21 +121,73 @@ function populateTable(instances) {
     instances.forEach(ins => {
         const row = document.createElement('tr');
 
+        ins.regular = (ins.min_deg == ins.max_deg);
         score = ins.best_known_solution ? ins.best_known_solution : 'n/a';
 
-        row.innerHTML = `<td>${ins.iid}</td>
-                    <td>
-                        <span class="name">${ins.name}</span>
-                        <span class="tags"></span>
-                        <p class="desc">${ins.description}</p>
-                    </td>
-                    <td class="num">${ins.nodes}</td>
-                    <td class="num">${ins.edges}</td>
-                    <td class="num">${score}</td>
-                    <td>
-                        <a href="#" alt="Details">🔍</a>
-                        <a href="${apiBase}instances/download/${ins.iid}" alt="Download">⬇️</a>
-                    </td>`;
+
+        function add_td(key, fmt = "num", if_unknown = "?", order_by_key = null) {
+            let value = ins[key];
+
+            if (value === null || value === undefined) {
+                value = if_unknown;
+            } else {
+                if (fmt == "num") {
+                    if (key != "iid" && value > 1e4) {
+                        if (value < 1000) { }
+                        else if (value < 1e6) {
+                            value = Math.round(value / 1000) + "K";
+                        } else {
+                            value = (value / 1e6).toFixed(2) + "M";
+
+                        }
+                    }
+                } else {
+                    value = value ? "✅" : "❌";
+                }
+            }
+
+            let elem = document.createElement("td");
+            elem.classList.add(fmt);
+
+            if (order_by_key === null) {
+                order_by_key = key;
+            }
+
+            if (filterOptions.order_by == order_by_key) {
+                elem.classList.add("table-primary");
+            }
+
+            elem.innerText = value;
+            row.appendChild(elem);
+        }
+
+        add_td("iid", "num", null, "id");
+
+        {
+            let name_elem = document.createElement("td");
+            name_elem.innerHTML = `<span class="name">${ins.name}</span><span class="tags"></span><p class="desc">${ins.description}</p>`;
+            row.appendChild(name_elem);
+        }
+
+
+        add_td("nodes");
+        add_td("edges");
+        add_td("best_known_solution", "num", "❓", "score");
+        add_td("min_deg");
+        add_td("max_deg");
+        add_td("regular", "bool");
+        add_td("num_ccs");
+        add_td("nodes_largest_cc");
+        add_td("treewidth");
+        add_td("bipartite", "bool");
+        add_td("planar", "bool");
+
+        {
+            let action_elem = document.createElement("td");
+            action_elem.classList.add("tool");
+            action_elem.innerHTML = `<a href="${apiBase}instances/download/${ins.iid}" alt="Download">⬇️</a>`;
+            row.appendChild(action_elem);
+        }
 
         ins.tags.forEach(tid => {
             row.querySelector(".tags").appendChild(createTagElement(tags[tid]));
@@ -164,8 +203,6 @@ function populateTable(instances) {
 }
 
 function populateMaxValues(max_values) {
-    console.log(max_values);
-
     function format(num) {
         if (num < 1000) {
             return num;
@@ -176,11 +213,13 @@ function populateMaxValues(max_values) {
         }
     }
 
-    function populate(key, word, num) {
+    function populate(key, word) {
+        const num = max_values[key];
         let limit = Math.pow(10, Math.floor(Math.log10(num)));
-        for (let bx = 10; bx <= limit; bx *= 10) {
+        for (let bx = 1; bx <= limit; bx *= 10) {
             for (const s of [1, 2, 5]) {
                 const x = bx * s;
+                if (x == 1) { continue; }
                 if (x > num) {
                     break;
                 }
@@ -188,20 +227,21 @@ function populateMaxValues(max_values) {
                 let option = document.createElement("option");
                 option.value = x;
                 let formatted_x = format(x);
-                option.innerText = `at least ${formatted_x} ${word}`;
-                document.querySelector("#min_" + key).appendChild(option);
+                option.innerText = "at least " + word.replace("$", formatted_x);
+                document.querySelector(`#constr_${key}_lb`).appendChild(option);
             }
         }
 
         limit = Math.pow(10, Math.ceil(Math.log10(num)));
-        for (let bx = 10; bx <= limit; bx *= 10) {
+        for (let bx = 1; bx <= limit; bx *= 10) {
             for (const s of [1, 2, 5]) {
                 const x = bx * s;
+                if (x == 1) { continue; }
                 let option = document.createElement("option");
                 option.value = x;
                 let formatted_x = format(x);
-                option.innerText = `at most ${formatted_x} ${word}`;
-                document.querySelector("#max_" + key).appendChild(option);
+                option.innerText = "at most " + word.replace("$", formatted_x);
+                document.querySelector(`#constr_${key}_ub`).appendChild(option);
 
                 if (x > num) {
                     return;
@@ -210,39 +250,45 @@ function populateMaxValues(max_values) {
         }
     }
 
-    populate("nodes", "nodes", max_values.max_nodes);
-    populate("edges", "edges", max_values.max_edges);
+    populate("nodes", "$ nodes");
+    populate("edges", "$ edges");
+    populate("min_deg", "min degree of $");
+    populate("max_deg", "max degree of $");
+    populate("num_ccs", "$ connected comps.");
+    populate("nodes_largest_cc", "$ nodes in largest cc");
 
-    if (max_values.max_solution_score !== null) {
-        populate("score", "nodes in domset", max_values.max_solution_score);
+    if (max_values.score !== null) {
+        populate("score", "$ nodes in domset");
     } else {
-        document.querySelector("#min_score").disabled = true;
-        document.querySelector("#max_score").disabled = true;
+        document.querySelector("#score_lb").disabled = true;
+        document.querySelector("#score_ub").disabled = true;
     }
-
-    for (const id of ["nodes", "edges", "score"]) {
-        for (const minmax of ["min", "max"]) {
-            let k = minmax + "_" + id;
-            console.log(k);
-            document.querySelector('#' + k).addEventListener("change", () => {
-                updateFilters(k);
-            });
-        }
-    }
-
-    document.querySelector("#tag").addEventListener("change", () => {
-        fetchData();
-    });
 }
 
-function updateFilters(key) {
-    let value = document.querySelector("#" + key).value;
+function updateBoolFilters(key, elem) {
+    const value = document.querySelector(`#bool_constr_${key}`).value;
+    console.log(key, value);
 
-    const mm = key.split("_")[0];
-    const id = key.split("_")[1];
-    const alt_key = ((mm == "min") ? "max" : "min") + "_" + id;
+    switch (value) {
+        case "none":
+            filterOptions[key] = null;
+        case "true":
+        case "false":
+            filterOptions[key] = (value == "true");
+    }
 
-    for (let opt of document.querySelectorAll(`#${alt_key} option`)) {
+    fetchData();
+}
+
+function updateRangeFilters(key, _elem) {
+    let value = parseInt(document.querySelector("#constr_" + key).value);
+
+    const id = key.slice(0, -3);
+    const ublb = key.slice(-2);
+
+    const alt_key = id + "_" + ((ublb == "ub") ? "lb" : "ub");
+
+    for (let opt of document.querySelectorAll(`#constr_${alt_key} option`)) {
         if (opt.value == "none") {
             continue;
         }
@@ -250,7 +296,7 @@ function updateFilters(key) {
         if (value == "none") {
             opt.disabled = false;
         } else {
-            opt.disabled = (mm == "min" && opt.value < value) || (mm == "max" && opt.value > value);
+            opt.disabled = (ublb == "lb" && parseInt(opt.value) < value) || (ublb == "ub" && parseInt(opt.value) > value);
         }
     }
 
@@ -321,7 +367,53 @@ function setupPagination(current, total) {
 }
 
 fetchData(include_tags = true, include_max_values = true);
+
 document.querySelector("#download_list").onclick = function () {
     let opts = buildFilterList();
     window.location.href = `${apiBase}instance_list?${opts.join("&")}`;
 };
+
+document.querySelectorAll("#instances thead .sortable").forEach((th) => {
+    const name = th.id.replace("header_", "");
+    th.addEventListener("click", () => {
+        if (filterOptions.order_by == name) {
+            filterOptions.direction = (filterOptions.direction == "asc") ? "desc" : "asc";
+        } else {
+            filterOptions.order_by = name;
+            filterOptions.direction = "asc";
+        }
+
+        fetchData();
+    });
+});
+
+document.querySelectorAll(".form-control").forEach((e) => {
+    if (e.id.startsWith("constr_")) {
+        const key = e.id.replace("constr_", "");
+        e.addEventListener('change', (elem) => { updateRangeFilters(key, elem); });
+    } else if (e.id.startsWith("bool_constr_")) {
+        const key = e.id.replace("bool_constr_", "");
+        e.addEventListener('change', (elem) => { updateBoolFilters(key, elem); });
+    }
+});
+
+document.querySelector("#tag").addEventListener("change", () => {
+    fetchData();
+});
+
+document.querySelector("#reset_filters").addEventListener("click", () => {
+    document.querySelectorAll(".form-control").forEach((e) => {
+        if (e.id.startsWith("constr_") || e.id.startsWith("bool_constr_")) {
+            e.value = "none";
+        }
+    });
+
+    filterOptions = {
+        direction: "asc",
+        order_by: "id",
+        current_page: 1,
+        tag: null
+    };
+
+    fetchData();
+});

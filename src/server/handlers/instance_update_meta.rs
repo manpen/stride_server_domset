@@ -1,8 +1,9 @@
 use super::common::*;
 use paste::paste;
 use sqlx::QueryBuilder;
+use tracing::debug;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 #[allow(non_snake_case)]
 pub struct UpdateRequest {
     iid: i32,
@@ -130,6 +131,7 @@ pub async fn instance_update_meta_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<UpdateRequest>,
 ) -> HandlerResult<impl IntoResponse> {
+    debug!("Received metadata update request: {:?}", body);
     check_params(&data, &body).await?;
     update_record(&data, &body).await?;
 

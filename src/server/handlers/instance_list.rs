@@ -70,9 +70,9 @@ pub struct FilterOptions {
     pub diameter_ub: Option<u32>,
 
     #[serde(default)]
-    pub tree_width_lb: Option<u32>,
+    pub treewidth_lb: Option<u32>,
     #[serde(default)]
-    pub tree_width_ub: Option<u32>,
+    pub treewidth_ub: Option<u32>,
 
     #[serde(default)]
     pub planar: Option<bool>,
@@ -108,6 +108,45 @@ pub enum SortBy {
     CreatedAt,
     Score,
     Difficulty,
+    #[serde(alias = "min_deg")] 
+    MinDeg,
+    #[serde(alias = "max_deg")] 
+    MaxDeg,
+    #[serde(alias = "avg_deg")] 
+    AvgDeg,
+    #[serde(alias = "num_ccs")] 
+    NumCCs,
+    #[serde(alias = "nodes_largest_cc")] 
+    NodesLargestCC,
+    Diameter,
+    Treewidth,
+    Bipartite,
+    Planar,
+    Regular,
+}
+
+impl SortBy {
+    fn to_sql_fields(&self) -> &'static str {
+        match *self {
+            SortBy::Id => "iid",
+            SortBy::Name => "name",
+            SortBy::Nodes => "nodes",
+            SortBy::Edges => "edges",
+            SortBy::CreatedAt => "i.created_at",
+            SortBy::Score => "best_known_solution",
+            SortBy::Difficulty => "best_known_solution", // TODO: this is not what we want
+            SortBy::MinDeg => "min_deg",
+            SortBy::MaxDeg => "max_deg",
+            SortBy::AvgDeg => "edges / nodes",
+            SortBy::NumCCs => "num_ccs",
+            SortBy::NodesLargestCC => "nodes_largest_cc",
+            SortBy::Diameter => "diameter",
+            SortBy::Bipartite => "bipartite",
+            SortBy::Planar => "planar", 
+            SortBy::Treewidth => "treewidth",
+            SortBy::Regular => "min_deg=max_deg",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, Default)]
@@ -120,9 +159,17 @@ pub enum SortDirection {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, Default)]
 struct MaxValues {
-    max_nodes: Option<u32>,
-    max_edges: Option<u32>,
-    max_solution_score: Option<u32>,
+    nodes: Option<u32>,
+    edges: Option<u32>,
+    score: Option<u32>,
+
+    min_deg : Option<u32>,
+    max_deg : Option<u32>,
+
+    num_ccs : Option<u32>,
+    nodes_largest_cc : Option<u32>,
+
+    treewidth : Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -155,10 +202,12 @@ struct InstanceModel {
     num_ccs: Option<u32>,
     nodes_largest_cc: Option<u32>,
     diameter: Option<u32>,
-    tree_width: Option<u32>,
+    treewidth: Option<u32>,
     planar: Option<bool>,
     bipartite: Option<bool>,
 }
+
+
 
 #[derive(Debug, Deserialize, Serialize)]
 struct InstanceResult {
@@ -183,9 +232,10 @@ struct InstanceResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     diameter: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tree_width: Option<u32>,
+    treewidth: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     planar: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     bipartite: Option<bool>,
 }
 
@@ -202,12 +252,16 @@ where
         ($key:ident) => {
             paste::paste! {
                 if let Some(x) = opts.[<$key _lb>] {
-                    builder.push(" AND i.[<$key>] >= ");
+                    builder.push(
+                        concat!(" AND i.", stringify!($key), " >= ")
+                    );
                     builder.push_bind(x);
                 }
 
                 if let Some(x) = opts.[<$key _ub>] {
-                    builder.push(" AND i.[<$key>] <= ");
+                    builder.push(
+                        concat!(" AND i.", stringify!($key), " <= ")
+                    );
                     builder.push_bind(x);
                 }
             }
@@ -222,7 +276,7 @@ where
     append_range_filter!(num_ccs);
     append_range_filter!(nodes_largest_cc);
     append_range_filter!(diameter);
-    append_range_filter!(tree_width);
+    append_range_filter!(treewidth);
 
     if let Some(x) = opts.planar {
         builder.push(" AND i.planar = ");
@@ -270,7 +324,7 @@ async fn retrieve_instances(
     let mut builder = sqlx::QueryBuilder::new(
         r#"SELECT 
         i.iid, i.nodes, i.edges, i.name, i.description,
-        i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.tree_width, 
+        i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.treewidth, 
         i.planar, i.bipartite,
     (SELECT MIN(score) FROM Solution WHERE instance_iid=i.iid) as best_known_solution, 
     GROUP_CONCAT(tag_tid) as tags
@@ -289,15 +343,7 @@ WHERE "#,
     builder = append_filters_to_query_builder(builder, opts);
 
     builder.push(" GROUP BY i.iid ORDER BY ");
-    builder.push(match opts.sort_by {
-        SortBy::Id => "iid",
-        SortBy::Name => "name",
-        SortBy::Nodes => "nodes",
-        SortBy::Edges => "edges",
-        SortBy::CreatedAt => "i.created_at",
-        SortBy::Score => "best_known_solution",
-        SortBy::Difficulty => "best_known_solution",
-    });
+    builder.push(opts.sort_by.to_sql_fields());
 
     builder.push(match opts.sort_direction {
         SortDirection::Desc => " DESC ",
@@ -320,29 +366,30 @@ WHERE "#,
 }
 
 async fn compute_max_values(app_data: &Arc<AppState>) -> HandlerResult<MaxValues> {
-    struct MaxGraphSize {
-        max_nodes: Option<u32>,
-        max_edges: Option<u32>,
-    }
-
-    let max_values = sqlx::query_as!(
-        MaxGraphSize,
-        r#"SELECT MAX(nodes) as max_nodes, MAX(edges) as max_edges FROM `Instance` i"#,
+    let mut max_values = sqlx::query_as!(
+        MaxValues,
+        r#"SELECT 
+            MAX(nodes)     as nodes,
+            MAX(edges)     as edges,
+            MAX(min_deg)   as min_deg,
+            MAX(max_deg)   as max_deg,
+            MAX(num_ccs)   as num_ccs,
+            MAX(treewidth) as treewidth,
+            NULL           as "score: u32",
+            MAX(nodes_largest_cc) as nodes_largest_cc
+        FROM `Instance` i"#,
     )
     .fetch_one(app_data.db())
     .await?;
 
-    let max_solution_score = sqlx::query_scalar::<_, u32>(
+    max_values.score = sqlx::query_scalar::<_, u32>(
             r#"SELECT MIN(score) as cnt FROM Solution s GROUP BY s.instance_iid ORDER BY cnt DESC LIMIT 1"#,
         )
         .fetch_one(app_data.db())
-        .await;
+        .await
+        .ok();
 
-    Ok(MaxValues {
-        max_nodes: max_values.max_nodes,
-        max_edges: max_values.max_edges,
-        max_solution_score: max_solution_score.ok(),
-    })
+    Ok(max_values)
 }
 
 pub async fn instance_list_handler(
@@ -380,7 +427,7 @@ pub async fn instance_list_handler(
                 num_ccs: model.num_ccs,
                 nodes_largest_cc: model.nodes_largest_cc,
                 diameter: model.diameter,
-                tree_width: model.tree_width,
+                treewidth: model.treewidth,
                 planar: model.planar,
                 bipartite: model.bipartite,
                 tags,
@@ -425,15 +472,7 @@ pub async fn instance_list_download_handler(
         builder = append_filters_to_query_builder(builder, &opts);
 
         builder.push(" ORDER BY ");
-        builder.push(match opts.sort_by {
-            SortBy::Id => "iid",
-            SortBy::Name => "name",
-            SortBy::Nodes => "nodes",
-            SortBy::Edges => "edges",
-            SortBy::CreatedAt => "i.created_at",
-            SortBy::Score => "best_known_solution",
-            SortBy::Difficulty => "best_known_solution",
-        });
+        builder.push(opts.sort_by.to_sql_fields());
 
         builder.push(match opts.sort_direction {
             SortDirection::Desc => " DESC ",
