@@ -27,6 +27,11 @@ pub mod tag_create;
 #[cfg(feature = "admin-api")]
 pub use tag_create::tag_create_handler;
 
+#[cfg(feature = "admin-api")]
+pub mod debug_restart;
+#[cfg(feature = "admin-api")]
+pub use debug_restart::debug_restart_handler;
+
 pub mod tag_list;
 pub use tag_list::tag_list_handler;
 

@@ -18,7 +18,18 @@ async fn handle_404() -> (StatusCode, &'static str) {
 pub fn create_router(app_state: Arc<AppState>) -> Router {
     // needs to be mutable to allow adding routes based on feature flags
     #[allow(unused_mut)]
-    let mut router = Router::new()
+    let mut router = Router::new();
+    #[cfg(feature = "admin-api")]
+    {
+        router = router
+            .route("/api/instances/new", post(instance_upload_handler))
+            .route("/api/instances/update", post(instance_update_meta_handler))
+            .route("/api/instances/delete/:id", get(instance_delete_handler))
+            .route("/api/tags/new", post(tag_create_handler))
+            .route("/api/debug_restart", get(debug_restart_handler));
+    }
+
+    router = router
         .route("/api/status", get(status_handler))
         .route("/api/instances", get(instance_list_handler))
         .route("/api/instance_list", get(instance_list_download_handler))
@@ -33,13 +44,6 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
             get(solution_hash_list_handler),
         );
 
-    #[cfg(feature = "admin-api")]
-    {
-        router = router
-            .route("/api/instances/new", post(instance_upload_handler))
-            .route("/api/instances/delete/:id", get(instance_delete_handler))
-            .route("/api/tags/new", post(tag_create_handler));
-    }
 
     let service_404 = handle_404.into_service();
     router
