@@ -9,6 +9,7 @@ admin-api = []
 [dependencies]
 anyhow = "1.0.93"
 axum = { version = "0.7.7", features = ["multipart"] }
+axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 dotenv = "0.15.0"
 http-body-util = "0.1.2"
 itertools = "0.13.0"
