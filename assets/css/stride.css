@@ -1,0 +1,126 @@
+body {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5
+}
+
+#instances .num {
+    text-align: right;
+}
+
+
+td:hover .desc {
+    display: block;
+}
+
+td .desc {
+    display: none;
+}
+
+#instances a {
+    text-decoration: none;
+}
+
+#instances th.num,
+#instances th.bool,
+#instances td.bool {
+    text-align: center;
+}
+
+#instances th.num,
+#instances td.num {
+    width: 4em;
+}
+
+#instances th.bool,
+#instances td.bool {
+    width: 3em;
+}
+
+#instances th.tool,
+#instances td.tool {
+    width: 1em;
+    text-align: right;
+}
+
+#pagination {
+    margin-top: 1em;
+    text-align: center;
+}
+
+#pagination button {
+    margin: 0.5em;
+}
+
+.tag {
+    font-weight: bold;
+    padding: 0.1em 0.5em 0.1em 0.5em;
+    border-radius: 0.5em;
+    display: inline;
+
+    color: white;
+    background-color: #444;
+    margin-left: 1em;
+    cursor: pointer;
+}
+
+.tagstyle1 {
+    background: blue;
+}
+
+.tagstyle2 {
+    background: darkred;
+}
+
+.tagstyle3 {
+    background: darkgreen;
+}
+
+.tag.active::after {
+    content: " ❌";
+}
+
+.tag.inactive {
+    opacity: 0.5;
+}
+
+th.asc::after {
+    content: " ↗️";
+}
+
+th.desc::after {
+    content: " ↘️";
+}
+
+th.sortable {
+    cursor: pointer;
+}
+
+#instances .error,
+#instances .warn {
+    text-align: center;
+}
+
+#instances .error,
+#run-stats .error {
+    color: var(--bs-danger-text-emphasis);
+}
+
+#instances .warning,
+#run-stats .warning {
+    color: var(--bs-warning-text-emphasis);
+}
+
+#instances .optimal,
+#run-stats .optimal {
+    color: var(--bs-success-text-emphasis);
+}
+
+#run-stats tr :nth-child(1) {
+    padding-right: 3rem;
+}
+
+#run-stats .num {
+    padding-left: 1rem;
+    text-align: right;
+}
