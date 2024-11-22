@@ -128,8 +128,8 @@ pub enum SortBy {
 }
 
 impl SortBy {
-    fn to_sql_fields(&self) -> &'static str {
-        match *self {
+    fn to_sql_fields(self) -> &'static str {
+        match self {
             SortBy::Id => "iid",
             SortBy::Name => "name",
             SortBy::Nodes => "nodes",

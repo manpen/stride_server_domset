@@ -22,7 +22,7 @@ pub struct UpdateRequest {
     #[serde(default)]
     diameter: Option<u32>,
     #[serde(default)]
-    tree_width: Option<u32>,
+    treewidth: Option<u32>,
 
     #[serde(default)]
     planar: Option<bool>,
@@ -78,7 +78,7 @@ async fn check_params(app_data: &Arc<AppState>, body: &UpdateRequest) -> Handler
         return error_bad_request!("Diameter cannot be greater than number of nodes");
     }
 
-    if body.tree_width.unwrap_or_default() > nodes {
+    if body.treewidth.unwrap_or_default() > nodes {
         return error_bad_request!("Tree width cannot be greater than number of nodes");
     }
 
@@ -111,7 +111,7 @@ async fn update_record(app_data: &Arc<AppState>, body: &UpdateRequest) -> Handle
     process!(num_ccs);
     process!(nodes_largest_cc);
     process!(diameter);
-    process!(tree_width);
+    process!(treewidth);
     process!(planar);
     process!(bipartite);
 
@@ -178,7 +178,7 @@ mod test {
     test_field!(num_ccs, 4, u32);
     test_field!(nodes_largest_cc, 5, u32);
     test_field!(diameter, 6, u32);
-    test_field!(tree_width, 7, u32);
+    test_field!(treewidth, 7, u32);
     test_field!(planar, true, bool);
     test_field!(bipartite, true, bool);
 

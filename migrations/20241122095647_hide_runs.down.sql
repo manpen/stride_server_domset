@@ -1,0 +1,1 @@
+ALTER TABLE SolverRun DROP COLUMN `hide`;

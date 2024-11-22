@@ -41,5 +41,11 @@ pub use solution_upload::solution_upload_handler;
 pub mod solution_hash_list;
 pub use solution_hash_list::solution_hash_list_handler;
 
+pub mod solver_run_list;
+pub use solver_run_list::solver_run_list_handler;
+
+pub mod solver_run_annotate;
+pub use solver_run_annotate::solver_run_annotate_handler;
+
 // imports used by pretty much every handler
 mod common;

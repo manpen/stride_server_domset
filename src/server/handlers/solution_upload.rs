@@ -25,13 +25,30 @@ pub enum SolverResult {
     Empty, // internal use only, to allow moving solutions out without copying
 }
 
-#[derive(Debug, Eq, PartialEq)]
-enum SolverResultType {
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub enum SolverResultType {
     Valid = 1,
     Infeasible = 2,
     SyntaxError = 3,
     Timeout = 4,
     NonCompetitive = 5,
+}
+
+impl TryFrom<u32> for SolverResultType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            x if x == SolverResultType::Valid as u32 => Ok(SolverResultType::Valid),
+            x if x == SolverResultType::Infeasible as u32 => Ok(SolverResultType::Infeasible),
+            x if x == SolverResultType::SyntaxError as u32 => Ok(SolverResultType::SyntaxError),
+            x if x == SolverResultType::Timeout as u32 => Ok(SolverResultType::Timeout),
+            x if x == SolverResultType::NonCompetitive as u32 => {
+                Ok(SolverResultType::NonCompetitive)
+            }
+            _ => Err(anyhow::anyhow!("Invalid SolverResultType value")),
+        }
+    }
 }
 
 impl SolverResult {
