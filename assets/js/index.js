@@ -304,6 +304,7 @@ function updateRangeFilters(key, _elem) {
 function addButton(inner, listener, addClass = null) {
     let button = document.createElement("a");
     button.classList.add("page-link");
+    button.href = "#";
 
 
     if ((typeof inner) == "string") {
