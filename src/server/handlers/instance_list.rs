@@ -4,13 +4,14 @@ use axum::http::{
 };
 use itertools::Itertools;
 use sqlx::{Database, QueryBuilder};
+use uuid::Uuid;
 
 use crate::{
     pace::graph::NumNodes,
     server::handlers::tag_list::{get_tag_list, TagModel},
 };
 
-use super::common::*;
+use super::{common::*, solution_upload::SolverResultType};
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
 pub struct FilterOptions {
@@ -88,6 +89,14 @@ pub struct FilterOptions {
 
     #[serde(default)]
     pub include_max_values: bool,
+
+    #[serde(default)]
+    #[serde(alias = "solver")]
+    pub solver_uuid : Option<Uuid>,
+
+    #[serde(default)]
+    #[serde(alias = "run")]
+    pub run_uuid : Option<Uuid>
 }
 
 fn default_value_1() -> usize {
@@ -188,7 +197,7 @@ struct Response {
     tags: Option<Vec<TagModel>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, sqlx::FromRow)]
+#[derive(Default, Debug, Deserialize, Serialize, sqlx::FromRow)]
 #[allow(non_snake_case)]
 struct InstanceModel {
     iid: i32,
@@ -207,9 +216,23 @@ struct InstanceModel {
     treewidth: Option<u32>,
     planar: Option<bool>,
     bipartite: Option<bool>,
+
+
+    solution_hash: Option<String>,
+    error_code: Option<u8>,
+    score: Option<u32>,
+    seconds_computed: Option<f64>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
+struct SolutionResult {
+    solution_hash: Option<String>,
+    error_code: SolverResultType,
+    score: Option<u32>,
+    seconds_computed: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct InstanceResult {
     iid: i32,
     nodes: u32,
@@ -237,16 +260,19 @@ struct InstanceResult {
     planar: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     bipartite: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    solution: Option<SolutionResult>,
 }
 
 fn append_filters_to_query_builder<'a, DB>(
     mut builder: QueryBuilder<'a, DB>,
     opts: &'a FilterOptions,
-) -> QueryBuilder<'a, DB>
+) -> HandlerResult<QueryBuilder<'a, DB>>
 where
     DB: Database,
     u32: sqlx::Encode<'a, DB> + sqlx::Type<DB>,
     bool: sqlx::Encode<'a, DB> + sqlx::Type<DB>,
+    String: sqlx::Encode<'a, DB> + sqlx::Type<DB>,
 {
     macro_rules! append_range_filter {
         ($key:ident) => {
@@ -297,11 +323,31 @@ where
         }
     }
 
-    builder
+    if let Some(run_uuid) = &opts.run_uuid {
+        if let Some(_solver_uuid) = &opts.solver_uuid  {
+            
+            //builder.push(" AND s.run_uuid = UNHEX(");
+            //builder.push_bind(run_uuid.simple().to_string());
+            //builder.push(")");
+
+            builder.push(" AND s.sr_uuid = UNHEX(");
+            builder.push_bind(run_uuid.simple().to_string());
+            builder.push(")");
+
+        } else {
+            return Err(anyhow::anyhow!("solver_uuid is required when run_uuid is provided").into());
+        }
+    }
+
+    Ok(builder)
 }
 
 async fn count_matches(opts: &FilterOptions, app_data: &Arc<AppState>) -> HandlerResult<u32> {
     let mut builder = sqlx::QueryBuilder::new(r#"SELECT COUNT(*) as cnt FROM `Instance` i "#);
+
+    if opts.run_uuid.is_some() && opts.solver_uuid.is_some() {
+        builder.push(" JOIN Solution s ON i.iid = s.instance_iid ");
+    }
 
     if let Some(tid) = opts.tag {
         builder.push(" JOIN InstanceTag it ON i.iid = it.instance_iid WHERE it.tag_tid = ");
@@ -310,7 +356,7 @@ async fn count_matches(opts: &FilterOptions, app_data: &Arc<AppState>) -> Handle
         builder.push(" WHERE 1=1 ");
     }
 
-    builder = append_filters_to_query_builder(builder, opts);
+    builder = append_filters_to_query_builder(builder, opts)?;
 
     Ok(builder
         .build_query_scalar::<i64>()
@@ -322,13 +368,29 @@ async fn retrieve_instances(
     opts: &FilterOptions,
     app_data: &Arc<AppState>,
 ) -> HandlerResult<Vec<InstanceModel>> {
+    let solver_run_mode = opts.run_uuid.is_some() && opts.solver_uuid.is_some();
+    
+    
     let mut builder = sqlx::QueryBuilder::new(
         r#"SELECT 
             i.iid, i.nodes, i.edges, i.name, i.description, i.best_score,
             i.min_deg, i.max_deg, i.num_ccs, i.nodes_largest_cc, i.diameter, i.treewidth, 
             i.planar, i.bipartite,
-        GROUP_CONCAT(tag_tid) as tags
+            GROUP_CONCAT(tag_tid) as tags, "#
+    );
+
+    if  solver_run_mode {
+        builder.push(r#" 
+            HEX(s.solution_hash) as `solution_hash`, s.error_code, s.score, s.seconds_computed
         FROM `Instance` i
+        JOIN Solution s ON i.iid = s.instance_iid "#);
+    } else {
+        builder.push(r#" 
+                    NULL as solution_hash, NULL as error_code,  NULL as score,  NULL as seconds_computed
+                    FROM `Instance` i "#);
+    }
+
+    builder.push(r#"
         JOIN InstanceTag it ON i.iid = it.instance_iid
         WHERE "#,
     );
@@ -340,9 +402,14 @@ async fn retrieve_instances(
         builder.push("1=1 ");
     }
 
-    builder = append_filters_to_query_builder(builder, opts);
+    builder = append_filters_to_query_builder(builder, opts)?;
 
-    builder.push(" GROUP BY i.iid ORDER BY ");
+    builder.push(" GROUP BY i.iid ");
+    if opts.run_uuid.is_some() && opts.solver_uuid.is_some() {
+        builder.push(", s.sr_uuid");
+    }
+    
+    builder.push(" ORDER BY ");
     builder.push(opts.sort_by.to_sql_fields());
 
     builder.push(match opts.sort_direction {
@@ -353,11 +420,13 @@ async fn retrieve_instances(
     let limit = opts.limit as u32;
     let offset = (opts.page.saturating_sub(1) * opts.limit) as u32;
 
+    if !solver_run_mode {
     builder.push("LIMIT ");
     builder.push_bind(limit);
 
     builder.push(" OFFSET ");
     builder.push_bind(offset);
+    }
 
     Ok(builder
         .build_query_as::<InstanceModel>()
@@ -399,14 +468,26 @@ pub async fn instance_list_handler(
     let results: Vec<InstanceResult> = retrieve_instances(&opts, &app_data)
         .await?
         .into_iter()
-        .map(|model: InstanceModel| {
+        .filter_map(|model: InstanceModel| {
             let tags = model.tags.as_ref().map_or(Vec::new(), |t| {
                 t.split(',')
                     .filter_map(|s| s.parse::<u32>().ok())
                     .collect::<Vec<_>>()
             });
 
-            InstanceResult {
+            let solution = if opts.run_uuid.is_some() && opts.solver_uuid.is_some() {
+                Some(SolutionResult {
+                    solution_hash: model.solution_hash.clone(),
+                    error_code: SolverResultType::try_from( model.error_code? as u32).ok()?,
+                    score: model.score,
+                    seconds_computed: model.seconds_computed.unwrap_or(0.0),
+                })
+            } else {
+                None
+            };
+
+
+            Some(InstanceResult {
                 iid: model.iid,
                 nodes: model.nodes,
                 edges: model.edges,
@@ -422,7 +503,8 @@ pub async fn instance_list_handler(
                 planar: model.planar,
                 bipartite: model.bipartite,
                 tags,
-            }
+                solution
+            })
         })
         .collect();
 
@@ -450,6 +532,10 @@ pub async fn instance_list_download_handler(
 ) -> HandlerResult<impl IntoResponse> {
     let Query(opts) = opts.unwrap_or_default();
 
+    if opts.run_uuid.is_some() || opts.solver_uuid.is_some() {
+        return Err(anyhow::anyhow!("run_uuid and solver_uuid are not supported in download mode").into());
+    }
+
     let list_as_string = {
         let mut builder = sqlx::QueryBuilder::new(r#"SELECT i.iid FROM `Instance` i "#);
 
@@ -460,7 +546,7 @@ pub async fn instance_list_download_handler(
             builder.push(" WHERE 1=1 ");
         }
 
-        builder = append_filters_to_query_builder(builder, &opts);
+        builder = append_filters_to_query_builder(builder, &opts)?;
 
         builder.push(" ORDER BY ");
         builder.push(opts.sort_by.to_sql_fields());

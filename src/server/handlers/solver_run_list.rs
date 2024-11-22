@@ -2,11 +2,16 @@ use std::collections::HashMap;
 
 use super::{common::*, solution_upload::SolverResultType};
 use sqlx::types::chrono::{DateTime, Utc};
+use sqlx_conditional_queries::conditional_query_as;
 use uuid::Uuid;
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
 pub struct FilterOptions {
-    solver: uuid::Uuid,
+    solver: Uuid,
+
+    #[serde(default)]
+    run: Option<Uuid>,
+
     #[serde(default)]
     include_hidden: bool,
 }
@@ -114,15 +119,21 @@ async fn solution_count(
         count: i64,
     }
 
-    let run_solution_counts: Vec<_> = sqlx::query_as!(
+    let solver_uuid = opts.solver.simple().to_string();
+    let run_uuid = opts.run.map(|r| r.simple().to_string());
+
+    let run_solution_counts: Vec<_> = conditional_query_as!(
         Row,
-        "SELECT 
+        r#"SELECT 
             sr.`sr_id`, s.`error_code` as 'error_code!', COUNT(s.sid) as `count!`
          FROM `Solution` s
          JOIN `SolverRun` sr ON s.`sr_uuid` = sr.`run_uuid`
-         WHERE sr.`solver_uuid` = UNHEX(?)
-         GROUP BY sr.`sr_id`, s.`error_code`",
-        opts.solver.simple().to_string()
+         WHERE sr.`solver_uuid` = UNHEX({solver_uuid}) {#run_cond}
+         GROUP BY sr.`sr_id`, s.`error_code`"#,
+         #run_cond = match &run_uuid {
+            Some(_) => "AND sr.`run_uuid` = UNHEX({run_uuid})",
+            None => "",
+         },         
     )
     .fetch_all(app_data.db())
     .await?;
@@ -151,17 +162,20 @@ async fn solution_count(
         count: i64,
     }
 
-    let num_opt_solutions = sqlx::query_as!(
+    let valid = SolverResultType::Valid as u32;
+    let num_opt_solutions = conditional_query_as!(
         OptRow,
         "SELECT 
             sr.`sr_id`, COUNT(s.sid) as `count!`
          FROM `Solution` s
          JOIN `SolverRun` sr ON s.`sr_uuid` = sr.`run_uuid`
          JOIN `Instance` i ON `s`.`instance_iid` = `i`.`iid`
-         WHERE sr.`solver_uuid` = UNHEX(?) AND s.`error_code` = ? AND i.best_score = s.score
+         WHERE sr.`solver_uuid` = UNHEX({solver_uuid}) {#run_cond} AND s.`error_code` = {valid} AND i.best_score = s.score
          GROUP BY sr.`sr_id`",
-        opts.solver.simple().to_string(),
-        SolverResultType::Valid as u32
+        #run_cond = match &run_uuid {
+            Some(_) => "AND sr.`run_uuid` = UNHEX({run_uuid})",
+            None => "",
+         },         
     )
     .fetch_all(app_data.db())
     .await?;
@@ -180,14 +194,24 @@ pub async fn solver_run_list_handler(
 ) -> HandlerResult<impl IntoResponse> {
     let opts = opts.unwrap_or_default();
 
-    let run_models : Vec<_> = sqlx::query_as!(RunModel,
+    let solver = opts.solver.simple().to_string();
+    let run = opts.run.map(|r| r.simple().to_string());
+    let run_models : Vec<_> = conditional_query_as!(RunModel,
         "SELECT 
             sr_id, run_uuid, solver_uuid, name, description, user_key, num_scheduled, created_at, hide as 'hide!'
         FROM SolverRun sr
-        WHERE solver_uuid = UNHEX(?) and (sr.hide = 0 or ?)
+        WHERE solver_uuid = UNHEX({solver}) {#run_cond} {#hidden_cond}
         ORDER BY created_at DESC",
-          opts.solver.simple().to_string(),
-            opts.include_hidden
+        
+        #run_cond = match &run {
+            Some(_) => " AND run_uuid = UNHEX({run}) ",
+            None => "",
+        },
+        #hidden_cond = match opts.include_hidden {
+            false => " AND sr.hide = 0 ",
+            true => "",
+        }
+         
         ).fetch_all(app_data.db()).await?;
 
     let counts = solution_count(&opts, &app_data).await?;

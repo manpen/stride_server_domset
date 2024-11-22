@@ -25,7 +25,7 @@ pub enum SolverResult {
     Empty, // internal use only, to allow moving solutions out without copying
 }
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize)]
 pub enum SolverResultType {
     Valid = 1,
     Infeasible = 2,
