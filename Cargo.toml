@@ -11,13 +11,14 @@ anyhow = "1.0.93"
 axum = { version = "0.7.7", features = ["multipart"] }
 axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 dotenv = "0.15.0"
+futures = "0.3.31"
 http-body-util = "0.1.2"
 itertools = "0.13.0"
 paste = "1.0.15"
 serde = { version = "1.0.214", features = ["derive"] }
 serde_json = "1.0.132"
 sha1 = "0.10.6"
-sqlx = { version = "0.8.2", features = ["runtime-async-std-native-tls", "mysql", "chrono", "uuid"] }
+sqlx = { version = "0.8.2", features = ["runtime-async-std-native-tls", "mysql", "sqlite", "chrono", "uuid"] }
 sqlx-conditional-queries = { version = "0.2.1", features = ["mysql"] }
 tokio = { version = "1.41.0", features = ["full"] }
 tower = { version = "0.5.1", features = ["util"] }

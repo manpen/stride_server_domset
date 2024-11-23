@@ -7,13 +7,13 @@ export DATABASE_URL=$DATABASE_URL_IN_DOCKER
 
 . /root/.cargo/env
 
-mkdir /target
+mkdir -p /target
 export CARGO_TARGET_DIR="/target"
 
 cd /srv
 sqlx migrate run
 
 while true; do
-    RUST_LOG="debug" cargo run --release -F admin-api
+    RUST_LOG="debug" cargo run --bin server --release -F admin-api
     sleep 0.5
 done
