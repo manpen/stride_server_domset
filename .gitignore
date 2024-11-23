@@ -12,3 +12,5 @@ pyenv
 *.ipynb
 *.http
 *.py
+assets/**/*.*.gz
+assets/**/*.*.zst

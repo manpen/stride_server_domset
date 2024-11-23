@@ -44,6 +44,10 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
     let service_404 = handle_404.into_service();
     router
         .layer(DefaultBodyLimit::max(100usize << 20))
-        .fallback_service(ServeDir::new("assets").not_found_service(service_404))
+        .fallback_service(
+            ServeDir::new("assets")
+                .precompressed_gzip()
+                .precompressed_zstd()
+                .not_found_service(service_404))
         .with_state(app_state)
 }

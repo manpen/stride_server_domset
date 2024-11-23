@@ -284,5 +284,8 @@ pub async fn solver_run_list_handler(
         run_response.push(resp);
     }
 
-    Ok(Json(Response { runs: run_response, options: opts }))
+    Ok(Json(Response {
+        runs: run_response,
+        options: opts,
+    }))
 }

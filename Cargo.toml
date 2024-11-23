@@ -21,7 +21,7 @@ sqlx = { version = "0.8.2", features = ["runtime-async-std-native-tls", "mysql",
 sqlx-conditional-queries = { version = "0.2.1", features = ["mysql"] }
 tokio = { version = "1.41.0", features = ["full"] }
 tower = { version = "0.5.1", features = ["util"] }
-tower-http = { version = "0.6.1", features = ["cors", "fs", "trace"] }
+tower-http = { version = "0.6.1", features = ["cors", "fs", "trace", "compression-gzip"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-test = "0.2.5"
@@ -29,3 +29,9 @@ uuid = { version = "1.11.0", features = ["serde", "v4"] }
 
 [dev-dependencies]
 strum = { version = "0.26.3", features = ["derive"] }
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
+
+[profile.release]
+debug = true

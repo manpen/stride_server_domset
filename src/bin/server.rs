@@ -8,6 +8,8 @@ use stride_server::server::{app_state::AppState, router::create_router};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use tower_http::compression::CompressionLayer;
+
 use axum_server::tls_rustls::RustlsConfig;
 
 const BIND_ADDRESS: [u8; 4] = [0, 0, 0, 0];
@@ -18,7 +20,7 @@ async fn connect_to_database() -> MySqlPool {
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let pool = MySqlPoolOptions::new()
-        .max_connections(10)
+        .max_connections(100)
         .connect(&database_url)
         .await;
 
@@ -32,7 +34,7 @@ async fn connect_to_database() -> MySqlPool {
 }
 
 async fn http_server(app_state: Arc<AppState>) -> Result<(), anyhow::Error> {
-    let app = create_router(app_state);
+    let app = create_router(app_state).layer(CompressionLayer::new());
 
     let addr = SocketAddr::from((BIND_ADDRESS, HTTP_PORT));
     let listener = tokio::net::TcpListener::bind(addr).await?;
