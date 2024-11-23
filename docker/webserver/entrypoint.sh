@@ -14,6 +14,6 @@ cd /srv
 sqlx migrate run
 
 while true; do
-    RUST_LOG="debug" cargo run --bin server --release -F admin-api
+    RUST_LOG="debug" cargo run --bin server --release
     sleep 0.5
 done

@@ -4,8 +4,8 @@ INSERT INTO SolverRun (run_uuid, solver_uuid) VALUES
     (UNHEX('00000000000000000001000000000002'), UNHEX('00000000000000000002000000000001'));
 
 INSERT INTO SolutionData (hash, data) VALUES 
-    (UNHEX('6ce3fe1479a10edb2f1bdd6d181a5b0e210abe1a'), "Hallo"),
-    (UNHEX('1d229271928d3f9e2bb0375bd6ce5db6c6d348d9'), "Hello");
+    (UNHEX('6ce3fe1479a10edb2f1bdd6d181a5b0e210abe1a'), "[0,1,3]"),
+    (UNHEX('1d229271928d3f9e2bb0375bd6ce5db6c6d348d9'), "[1,2]");
 
 
 INSERT INTO Solution (sr_uuid, instance_iid, solution_hash, error_code, score, seconds_computed) VALUES 

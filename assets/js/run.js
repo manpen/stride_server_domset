@@ -21,17 +21,20 @@ const apiTags = apiBase + 'tags';
 const apiInstances = apiBase + `instances?solver=${SOLVER}&run=${RUN}`;
 const apiSolverRunList = apiBase + `solver_run/list?solver=${SOLVER}&run=${RUN}`;
 
+function instanceFmt(value, row) {
+    return `<a href="api/instances/download/${row.iid}">${value}</a>`;
+}
+
+
 function scoreFmt(value, row) {
     if (value == "Infeasible") {
         return "<span class='error'>Infeasible</span>";
     }
 
     const delta = row.raw.solution.score - row.raw.best_score;
-    if (delta === 0) {
-        return `<span class='optimal'>${value}</span>`;
-    }
-
-    return value;
+    const cls = delta == 0 ? ' class="optimal"' : "";
+    const url = `/api/solutions/download?iid=${row.iid}&solver=${SOLVER}&run=${RUN}`;
+    return `<a href=${url}${cls}>${value}</a>`;
 }
 
 function digitsFmt(value, row) {

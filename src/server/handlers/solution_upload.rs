@@ -108,7 +108,7 @@ async fn verify_solution(
 ) -> HandlerResult<Solution> {
     let (nodes, edges) = read_instance_data(db, instance_id).await?;
 
-    let solution = Solution::from_vec(solution, Some(nodes as NumNodes))?;
+    let solution = Solution::from_1indexed_vec(solution, Some(nodes as NumNodes))?;
 
     if !solution.valid_domset_for_instance(nodes, edges.into_iter())? {
         return error_bad_request!("Solution is not a valid dominating set for the instance");

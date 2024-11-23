@@ -47,5 +47,8 @@ pub use solver_run_list::solver_run_list_handler;
 pub mod solver_run_annotate;
 pub use solver_run_annotate::solver_run_annotate_handler;
 
+pub mod solution_download;
+pub use solution_download::solution_download_handler;
+
 // imports used by pretty much every handler
 mod common;

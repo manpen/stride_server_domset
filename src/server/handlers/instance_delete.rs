@@ -79,7 +79,6 @@ mod test {
     use super::*;
     use crate::server::app_state::DbPool;
 
-
     #[sqlx::test(fixtures("instances", "solutions"))]
     async fn instance_delete_handler(pool: DbPool) -> sqlx::Result<()> {
         let state = Arc::new(AppState::new(pool));

@@ -13,7 +13,14 @@ pub struct Solution {
 }
 
 impl Solution {
-    pub fn from_vec(mut solution: Vec<Node>, nodes_upper_bound: Option<NumNodes>) -> Result<Self> {
+    pub fn from_0indexed_vec(solution: Vec<Node>) -> Self {
+        Self { solution }
+    }
+
+    pub fn from_1indexed_vec(
+        mut solution: Vec<Node>,
+        nodes_upper_bound: Option<NumNodes>,
+    ) -> Result<Self> {
         for u in solution.iter_mut() {
             if *u == 0 || nodes_upper_bound.map_or(false, |n| *u > n) {
                 return Err(std::io::Error::new(
@@ -134,6 +141,18 @@ impl Solution {
         }
 
         hasher.finalize()
+    }
+
+    pub fn take_solution(self) -> Vec<Node> {
+        self.solution
+    }
+
+    pub fn take_1indexed_solution(mut self) -> Vec<Node> {
+        for x in &mut self.solution {
+            *x += 1;
+        }
+
+        self.solution
     }
 }
 
@@ -294,7 +313,7 @@ mod test {
 
     #[test]
     fn digest_matches_python() {
-        let solution = Solution::from_vec((1..10).collect(), None).unwrap();
+        let solution = Solution::from_1indexed_vec((1..10).collect(), None).unwrap();
         assert_eq!(
             format!("{:x}", solution.compute_digest()),
             "89d9014041ecdcfe552d725a76a07395d272bded"
