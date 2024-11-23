@@ -15,7 +15,7 @@ pub async fn instance_delete_handler(
         .await?;
 
     let solution_data_hashes = sqlx::query_as::<_, (String,)>(
-        r#"SELECT HEX(data_hash) FROM Solution WHERE instance_iid=?"#,
+        r#"SELECT HEX(solution_hash) FROM Solution WHERE instance_iid=? AND solution_hash IS NOT NULL"#,
     )
     .bind(id)
     .fetch_all(&mut *tx)
@@ -27,15 +27,15 @@ pub async fn instance_delete_handler(
         .await?;
 
     for (hash,) in solution_data_hashes {
-        let usages_of_hash = sqlx::query_scalar::<_, u64>(
-            r#"SELECT COUNT(*) FROM Solution WHERE data_hash=UNHEX(?)"#,
+        let usages_of_hash = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(*) FROM Solution WHERE solution_hash=UNHEX(?)"#,
         )
         .bind(&hash)
         .fetch_one(&mut *tx)
         .await?;
 
         if usages_of_hash == 0 {
-            sqlx::query(r#"DELETE FROM SolutionData WHERE data_hash=UNHEX(?)"#)
+            sqlx::query(r#"DELETE FROM SolutionData WHERE hash=UNHEX(?)"#)
                 .bind(&hash)
                 .execute(&mut *tx)
                 .await?;
@@ -43,7 +43,7 @@ pub async fn instance_delete_handler(
     }
 
     // delete data, if not used by any other instance
-    let data_did = sqlx::query_scalar::<_, u32>(r#"SELECT data_did FROM Instance WHERE iid=?"#)
+    let data_did = sqlx::query_scalar::<_, i32>(r#"SELECT data_did FROM Instance WHERE iid=?"#)
         .bind(id)
         .fetch_one(&mut *tx)
         .await?;
@@ -54,7 +54,7 @@ pub async fn instance_delete_handler(
         .await?;
 
     let usages_of_did =
-        sqlx::query_scalar::<_, u64>(r#"SELECT COUNT(*) FROM Instance WHERE data_did=?"#)
+        sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM Instance WHERE data_did=?"#)
             .bind(data_did)
             .fetch_one(&mut *tx)
             .await?;
@@ -72,4 +72,34 @@ pub async fn instance_delete_handler(
         "status": "ok",
         "id": id,
     })))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::server::app_state::DbPool;
+
+
+    #[sqlx::test(fixtures("instances", "solutions"))]
+    async fn instance_delete_handler(pool: DbPool) -> sqlx::Result<()> {
+        let state = Arc::new(AppState::new(pool));
+
+        let id = 1;
+
+        let response = super::instance_delete_handler(Path(id), State(state.clone()))
+            .await
+            .unwrap()
+            .into_response();
+
+        assert!(response.status().is_success());
+
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM Instance WHERE iid=?")
+            .bind(id)
+            .fetch_one(state.db())
+            .await?;
+
+        assert_eq!(0, count);
+
+        Ok(())
+    }
 }
