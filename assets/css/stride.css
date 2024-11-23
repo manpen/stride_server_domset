@@ -102,17 +102,21 @@ th.sortable {
 }
 
 #instances .error,
-#run-stats .error {
+#run-stats .error,
+.text-error,
+.text-infeasible {
     color: var(--bs-danger-text-emphasis);
 }
 
 #instances .warning,
-#run-stats .warning {
+#run-stats .warning,
+.text-timeout {
     color: var(--bs-warning-text-emphasis);
 }
 
 #instances .optimal,
-#run-stats .optimal {
+#run-stats .optimal,
+.text-optimal {
     color: var(--bs-success-text-emphasis);
 }
 
@@ -120,7 +124,23 @@ th.sortable {
     padding-right: 3rem;
 }
 
-#run-stats .num {
+#run-stats th.num {
+    text-align: center;
+}
+
+#run-stats td.num {
     padding-left: 1rem;
     text-align: right;
+}
+.info .field {
+    margin-right: 1rem;
+}
+
+.info .field::after {
+    content: ",";
+    white-space: break-spaces;
+}
+
+.info .field:last-child::after {
+    content: "";
 }

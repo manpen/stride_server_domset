@@ -47,6 +47,7 @@ function populateRuns(data) {
         info.classList.add("info");
         info.classList.add("col-6");
         info.classList.add("p-6");
+        info.classList.add("mt-3");
         function add_content(el, cls, text) {
             let elem = document.createElement(el);
             elem.className = cls;
@@ -135,6 +136,8 @@ function populateRuns(data) {
 
         let right_col = document.createElement("div");
         right_col.classList.add("col-6");
+        right_col.classList.add("mt-3");
+
 
         let progress = document.createElement("div");
         progress.classList.add("progress-stacked");
@@ -173,7 +176,33 @@ function populateRuns(data) {
 
         let right_info = document.createElement("div");
         right_info.classList.add("info");
-        right_info.innerText = `Total: ${total_num} runs`;
+
+        {
+            function add_field(title, key, cls) {
+                const num = run["num_" + key];
+                if (num == 0) { return; }
+
+                const time = num ? ((run["seconds_computed_" + key] / num).toFixed(1) + "s") : "n/a";
+
+                let span = document.createElement("span");
+                span.classList.add("field");
+                if (cls) span.classList.add(cls);
+                span.innerHTML = ` ${title}:&nbsp;${num}&nbsp;(mean:&nbsp;${time})`;
+
+                right_info.appendChild(span);
+            }
+
+            let elem = document.createElement("span");
+            elem.classList.add("field");
+            elem.innerText = `Total: ${total_num} runs`;
+            right_info.appendChild(elem);
+
+            add_field("Optimal", "optimal", "text-optimal");
+            add_field("Suboptimal", "suboptimal", "text-suboptimal");
+            add_field("Infeasible", "infeasible", "text-infeasible");
+            add_field("Timeout", "timeout", "text-warning");
+            add_field("Error", "error", "text-error");
+        }
 
         right_col.appendChild(right_info);
 

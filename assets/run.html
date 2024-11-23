@@ -35,6 +35,13 @@
                     <p id="run-description"></p>
 
                     <table id="run-stats" class="table-fluid table-dark table-striped table-hover mt-3">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th class="num">Num</th>
+                                <th class="num">Frac</th>
+                                <th class="num">Avg. Time</th>
+                            </tr>
                         <tbody></tbody>
                     </table>
 
@@ -55,7 +62,14 @@
                     </div>
                     </div>
 
-            <h2 class="mt-5">Instance</h2>
+            <div class="row mt-5">
+                <div class="col-6">
+                    <h2>Instance</h2>
+                </div>
+                <div class="col-6" style="text-align: right;">
+                    <a id="download-instances" class="btn btn-primary" href="#" download>Download Instance List</a>
+                </div>
+            </div>
             <table id="instances" class="table table-dark table-striped table-hover" data-toggle="table">
                 <thead>
                     <tr>

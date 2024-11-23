@@ -15,6 +15,7 @@ async fn handle_404() -> (StatusCode, &'static str) {
     (StatusCode::NOT_FOUND, "Not found")
 }
 
+#[rustfmt::skip]
 pub fn create_router(app_state: Arc<AppState>) -> Router {
     // needs to be mutable to allow adding routes based on feature flags
     #[allow(unused_mut)]
@@ -33,16 +34,10 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route("/api/status", get(status_handler))
         .route("/api/instances", get(instance_list_handler))
         .route("/api/instance_list", get(instance_list_download_handler))
-        .route(
-            "/api/instances/download/:id",
-            get(instance_download_handler),
-        )
+        .route("/api/instances/download/:id", get(instance_download_handler))
         .route("/api/tags", get(tag_list_handler))
         .route("/api/solutions/new", post(solution_upload_handler))
-        .route(
-            "/api/solution_hashes/:solver_uuid",
-            get(solution_hash_list_handler),
-        )
+        .route("/api/solution_hashes/:solver_uuid", get(solution_hash_list_handler))
         .route("/api/solver_run/list", get(solver_run_list_handler))
         .route("/api/solver_run/annotate", get(solver_run_annotate_handler));
 

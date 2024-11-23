@@ -123,7 +123,10 @@ fetch(apiSolverRunList).then(response => response.json()).then(data => {
     let stats_tbody = document.querySelector("#run-stats tbody");
     stats_tbody.innerHTML = "";
 
-    function add_row(title, num, cls) {
+    function add_row(title, key, cls) {
+        const num = run["num_" + key];
+        const time = num ? ((run["seconds_computed_" + key] / num).toFixed(1) + "s") : "n/a";
+
         let row = document.createElement("tr");
         if (cls) { row.classList.add(cls); }
 
@@ -141,14 +144,20 @@ fetch(apiSolverRunList).then(response => response.json()).then(data => {
         frac_elem.innerText = (num / total_width * 100).toFixed(1) + "%";
         row.appendChild(frac_elem);
 
+        let time_elem = document.createElement("td");
+        time_elem.classList.add("num");
+        time_elem.innerText = time;
+        row.appendChild(time_elem);
+
+
         stats_tbody.appendChild(row);
     }
 
-    add_row("Optimal instances", run.num_optimal, "optimal");
-    add_row("Suboptimal instances", run.num_suboptimal, "");
-    add_row("Infeasible instances", run.num_infeasible, "error");
-    add_row("Timeout instances", run.num_timeout, "warning");
-    add_row("Error instances", run.num_error, "error");
+    add_row("Optimal instances", "optimal", "optimal");
+    add_row("Suboptimal instances", "suboptimal", "");
+    add_row("Timeout instances", "timeout", "warning");
+    add_row("Infeasible instances", "infeasible", "error");
+    add_row("Error instances", "error", "error");
 
 });
 
@@ -224,14 +233,16 @@ function plot(instances) {
 }
 
 let instances = [];
-
 document.querySelector("#plot-type").addEventListener("change", () => {
     if (instances.length > 0) {
         plot(instances);
     }
 });
 
-//$(function () {
+
+document.querySelector("#breadcrumb-solver").href = "/runs.html?solver=" + SOLVER;
+document.querySelector("#download-instances").href = `/api/instance_list?solver=${SOLVER}&run=${RUN}`;
+
 fetch(apiInstances)
     .then(response => response.json())
     .then(data => {
@@ -239,9 +250,6 @@ fetch(apiInstances)
         populateTable(instances);
         plot(instances);
     });
-
-document.querySelector("#breadcrumb-solver").href = "/runs.html?solver=" + SOLVER;
-//});
 
 
 
