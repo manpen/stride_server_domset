@@ -9,47 +9,6 @@
     
     <link href="css/bootstrap.min.css" rel="stylesheet" />
     <link href="css/stride.css" rel="stylesheet" />
-
-    <style>
-        #runs .run {
-            border: 2px solid var(--bs-gray);
-            border-radius: var(--bs-border-radius);
-        }
-
-        #runs>.hidden {
-            opacity: 0.5;
-        }
-
-        #runs .run:hover {
-            border: 2px solid var(--bs-primary-border-subtle);
-        }
-
-
-        #runs .run .name {
-            cursor: pointer;
-        }
-
-        #runs .run .name:hover {
-            text-decoration: underline;
-        }
-
-        #runs .run .progress-stacked,
-        #runs .run .progress {
-            --bs-progress-height: 3.5rem;
-            --bs-progress-font-size: 100%;
-        }
-
-        #runs .tools {
-            margin-top: -0.5rem;
-            margin-bottom: 1rem;
-            ;
-        }
-
-        #runs .tools a {
-            text-decoration: none;
-            cursor: pointer;
-        }
-    </style>
 </head>
 
 <body>
@@ -77,9 +36,12 @@
                         <label>Display</label>
                     </div>
                     <div class="col-5">
-                        <input type="checkbox" id="include_hidden" /> <label for="include_hidden">Include Hidden</label>
+                        <select id="instances_of" class="form-select">
+                            <option value="all">All Instances</option>
+                        </select>
                     </div>
                     <div class="col-5">
+                        <input type="checkbox" id="include_hidden" /> <label for="include_hidden">Include Hidden</label>
                     </div>
                 </div>
             </form>

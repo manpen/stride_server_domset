@@ -27,6 +27,9 @@ function getRunUuid(elem) {
 
 
 function populateRuns(data) {
+    const filterOptions = data.options;
+    document.querySelector("#instances_of").innerHTML = "<option value='all'>all instances</option>";
+
     let tbody = document.getElementById("runs");
     tbody.innerHTML = "";
 
@@ -38,6 +41,10 @@ function populateRuns(data) {
 
         if (run.hide) {
             row.classList.add("hidden");
+        }
+
+        if (run.run_uuid == filterOptions.instances_of) {
+            row.classList.add("instances_of");
         }
 
         row.id = `run-${run.run_uuid}`;
@@ -57,6 +64,19 @@ function populateRuns(data) {
         }
 
         const name = run.name ? run.name : run.run_uuid;
+
+        // add entry for instance filter
+        {
+            let option = document.createElement("option");
+            option.value = run.run_uuid;
+            option.innerText = `only of '${name}'`;
+
+            if (filterOptions.instances_of == run.run_uuid) {
+                option.selected = true;
+            }
+
+            document.querySelector("#instances_of").appendChild(option);
+        }
 
         let h4 = add_content("h4", "name", name);
         h4.addEventListener("click", (e) => {
@@ -118,6 +138,19 @@ function populateRuns(data) {
                 }
             });
 
+            if (run.run_uuid == filterOptions.instances_of) {
+                add_tool("instances_of", " [all instances]", (e) => {
+                    document.getElementById("instances_of").value = "all";
+                    fetchRuns();
+                });
+            } else {
+                add_tool("instances_of", " [only these instance]", (e) => {
+                    const run = getRunUuid(e.target);
+                    document.getElementById("instances_of").value = run;
+                    fetchRuns();
+                });
+            }
+
         }
 
 
@@ -158,7 +191,6 @@ function populateRuns(data) {
                 inner_bar.classList.add(c);
             }
             inner_bar.innerHTML = title.replace("$", (num / total_width * 100).toFixed(1) + "%");
-            console.log(num, total_width, num / total_width * 100);
 
             progress_outer.appendChild(inner_bar);
             progress.appendChild(progress_outer);
@@ -220,10 +252,17 @@ function fetchRuns() {
         opts += "&include_hidden=true";
     }
 
+    const instances_of = document.getElementById("instances_of").value;
+    if (instances_of != "all") {
+        opts += `&instances_of=${instances_of}`;
+    }
+
     fetch(`${apiSolverRunList}${opts}`)
         .then(response => response.json())
         .then(data => populateRuns(data));
 }
 
 fetchRuns();
+
 document.getElementById("include_hidden").addEventListener("change", fetchRuns);
+document.getElementById("instances_of").addEventListener("change", fetchRuns);

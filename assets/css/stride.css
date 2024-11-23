@@ -144,3 +144,52 @@ th.sortable {
 .info .field:last-child::after {
     content: "";
 }
+#runs .run {
+    border: 2px solid var(--bs-gray);
+    border-radius: var(--bs-border-radius);
+}
+
+#runs>.hidden {
+    opacity: 0.5;
+}
+
+#runs>.instances_of {
+    border-color: var(--bs-info);
+    background-color: var(--bs-info-bg-subtle);
+}
+
+#runs>.instances_of .instances_of {
+    font-weight: bold;
+    color: var(--bs-danger-text-emphasis);
+}
+
+
+#runs .run:hover {
+    border: 2px solid var(--bs-primary-border-subtle);
+}
+
+
+#runs .run .name {
+    cursor: pointer;
+}
+
+#runs .run .name:hover {
+    text-decoration: underline;
+}
+
+#runs .run .progress-stacked,
+#runs .run .progress {
+    --bs-progress-height: 3.5rem;
+    --bs-progress-font-size: 100%;
+}
+
+#runs .tools {
+    margin-top: -0.5rem;
+    margin-bottom: 1rem;
+    ;
+}
+
+#runs .tools a {
+    text-decoration: none;
+    cursor: pointer;
+}

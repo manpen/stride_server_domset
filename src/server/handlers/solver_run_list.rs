@@ -9,8 +9,11 @@ use uuid::Uuid;
 pub struct FilterOptions {
     solver: Uuid,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     run: Option<Uuid>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    instances_of: Option<Uuid>,
 
     #[serde(default)]
     include_hidden: bool,
@@ -111,6 +114,7 @@ impl TryFrom<RunModel> for RunResponse {
 #[derive(Clone, Serialize, Debug, Default)]
 struct Response {
     runs: Vec<RunResponse>,
+    options: FilterOptions,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -141,6 +145,7 @@ async fn solution_count(
 
     let solver_uuid = opts.solver.simple().to_string();
     let run_uuid = opts.run.map(|r| r.simple().to_string());
+    let instances_of_uuid = opts.instances_of.map(|r| r.simple().to_string());
 
     let run_solution_counts: Vec<_> = conditional_query_as!(
         Row,
@@ -148,10 +153,14 @@ async fn solution_count(
             sr.`sr_id`, s.`error_code` as 'error_code!', COUNT(s.sid) as `count!`, SUM(s.seconds_computed) as `seconds_computed!`
          FROM `Solution` s
          JOIN `SolverRun` sr ON s.`sr_uuid` = sr.`run_uuid`
-         WHERE sr.`solver_uuid` = UNHEX({solver_uuid}) {#run_cond}
+         WHERE sr.`solver_uuid` = UNHEX({solver_uuid}) {#run_cond} {#inst_of_cond}
          GROUP BY sr.`sr_id`, s.`error_code`"#,
          #run_cond = match &run_uuid {
             Some(_) => "AND sr.`run_uuid` = UNHEX({run_uuid})",
+            None => "",
+         },
+         #inst_of_cond = match &instances_of_uuid {
+            Some(_) => "AND s.`instance_iid` IN (SELECT instance_iid FROM Solution WHERE sr_uuid = UNHEX({instances_of_uuid}))",
             None => "",
          },
     )
@@ -193,10 +202,14 @@ async fn solution_count(
          FROM `Solution` s
          JOIN `SolverRun` sr ON s.`sr_uuid` = sr.`run_uuid`
          JOIN `Instance` i ON `s`.`instance_iid` = `i`.`iid`
-         WHERE sr.`solver_uuid` = UNHEX({solver_uuid}) {#run_cond} AND s.`error_code` = {valid} AND i.best_score = s.score
+         WHERE sr.`solver_uuid` = UNHEX({solver_uuid}) {#run_cond} {#inst_of_cond} AND s.`error_code` = {valid} AND i.best_score = s.score
          GROUP BY sr.`sr_id`",
         #run_cond = match &run_uuid {
             Some(_) => "AND sr.`run_uuid` = UNHEX({run_uuid})",
+            None => "",
+         },
+         #inst_of_cond = match &instances_of_uuid {
+            Some(_) => "AND s.`instance_iid` IN (SELECT instance_iid FROM Solution WHERE sr_uuid = UNHEX({instances_of_uuid}))",
             None => "",
          },
     )
@@ -221,7 +234,7 @@ pub async fn solver_run_list_handler(
     opts: Option<Query<FilterOptions>>,
     State(app_data): State<Arc<AppState>>,
 ) -> HandlerResult<impl IntoResponse> {
-    let opts = opts.unwrap_or_default();
+    let Query(opts) = opts.unwrap_or_default();
 
     let solver = opts.solver.simple().to_string();
     let run = opts.run.map(|r| r.simple().to_string());
@@ -271,5 +284,5 @@ pub async fn solver_run_list_handler(
         run_response.push(resp);
     }
 
-    Ok(Json(Response { runs: run_response }))
+    Ok(Json(Response { runs: run_response, options: opts }))
 }
