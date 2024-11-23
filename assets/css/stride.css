@@ -96,6 +96,9 @@ th.sortable {
     cursor: pointer;
 }
 
+#instances a:hover {
+    text-decoration: underline;
+}
 #instances .error,
 #instances .warn {
     text-align: center;
