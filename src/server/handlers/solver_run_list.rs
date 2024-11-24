@@ -124,6 +124,7 @@ enum SolutionTypes {
     Infeasible,
     Error,
     Timeout,
+    IncompleteOutput,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -180,6 +181,7 @@ async fn solution_count(
             SolverResultType::SyntaxError => SolutionTypes::Error,
             SolverResultType::Timeout => SolutionTypes::Timeout,
             SolverResultType::NonCompetitive => SolutionTypes::Feasible,
+            SolverResultType::IncompleteOutput => SolutionTypes::IncompleteOutput,
         };
 
         let key = (row.sr_id as u32, solution_type);

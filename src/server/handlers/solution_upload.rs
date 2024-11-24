@@ -20,6 +20,7 @@ pub enum SolverResult {
     SyntaxError,
     Timeout,
     NonCompetitive,
+    IncompleteOutput,
 
     #[serde(skip_deserializing)]
     Empty, // internal use only, to allow moving solutions out without copying
@@ -32,6 +33,7 @@ pub enum SolverResultType {
     SyntaxError = 3,
     Timeout = 4,
     NonCompetitive = 5,
+    IncompleteOutput = 6,
 }
 
 impl TryFrom<u32> for SolverResultType {
@@ -46,6 +48,7 @@ impl TryFrom<u32> for SolverResultType {
             x if x == SolverResultType::NonCompetitive as u32 => {
                 Ok(SolverResultType::NonCompetitive)
             }
+            x if x == SolverResultType::IncompleteOutput as u32 => Ok(SolverResultType::IncompleteOutput),
             _ => Err(anyhow::anyhow!("Invalid SolverResultType value")),
         }
     }
@@ -60,6 +63,7 @@ impl SolverResult {
             SolverResult::SyntaxError => Some(SolverResultType::SyntaxError),
             SolverResult::Timeout => Some(SolverResultType::Timeout),
             SolverResult::NonCompetitive => Some(SolverResultType::NonCompetitive),
+            SolverResult::IncompleteOutput => Some(SolverResultType::IncompleteOutput),
             SolverResult::Empty => None,
         }
     }
@@ -312,7 +316,8 @@ pub async fn solution_upload_handler(
         SolverResult::Infeasible
         | SolverResult::SyntaxError
         | SolverResult::Timeout
-        | SolverResult::NonCompetitive => handle_invalid_solution(app_state, request, result_type)
+        | SolverResult::NonCompetitive
+        | SolverResult::IncompleteOutput => handle_invalid_solution(app_state, request, result_type)
             .await?
             .into_response(),
         SolverResult::Empty => return error_bad_request!("Empty solution result"),
