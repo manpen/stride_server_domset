@@ -9,6 +9,7 @@ services:
       - '6500:3306'
     volumes:
       - ./data/mysql:/var/lib/mysql
+    command: --skip-name-resolve
 
   mysql-testing:
     image: mysql:latest
@@ -17,6 +18,8 @@ services:
       - ./testing.env
     ports:
       - '6600:3306'
+    command: --skip-name-resolve
+    
 
   webserver:
     container_name: webserver
