@@ -32,7 +32,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
 
     router = router
         .route("/api/status", get(status_handler))
-        .route("/api/instances", get(instance_list_handler))
+        .route("/api/instances", post(instance_list_handler))
         .route("/api/instance_list", get(instance_list_download_handler))
         .route("/api/instances/download/:id", get(instance_download_handler))
         .route("/api/tags", get(tag_list_handler))

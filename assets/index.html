@@ -21,226 +21,360 @@
     </header>
 
     <div class="container mt-3">
+        <h1 id="run-name" class="run-mode-only">Run</h1>
+        <nav aria-label="breadcrumb" class="run-mode-only">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Home</a></li>
+                <li class="breadcrumb-item"><a href="runs.html" id="breadcrumb-solver">Solver</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Run</li>
+            </ol>
+        </nav>
+
+        <p id="run-description" class="run-mode-only"></p>
+
         <main>
-            <form class="bg-body-tertiary p-2">
-                <div class="row p-2">
-                    <div class="col-2">
-                        <label>Nodes</label>
-                    </div>
-                    <div class="col-5">
-                        <select class="form-control" id="constr_nodes_lb">
-                            <option value="none">Minimal Nodes</option>
-                        </select>
-                    </div>
-                    <div class="col-5">
-                        <select class="form-control" id="constr_nodes_ub">
-                            <option value="none">Maximal Nodes</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="row p-2">
-                    <div class="col-2">
-                        <label>Edges</label>
-                    </div>
-                    <div class="col-5">
-                        <select class="form-control" id="constr_edges_lb">
-                            <option value="none">Minimal Edges</option>
-                        </select>
-                    </div>
-                    <div class="col-5">
-                        <select class="form-control" id="constr_edges_ub">
-                            <option value="none">Maximal Edges</option>
-                        </select>
-                    </div>
-                </div>
-<hr />
-<div class="row p-2">
-    <div class="col-2">
-        <label>Smallest Degree</label>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_min_deg_lb">
-            <option value="none">Minimal Smallest Degree</option>
-        </select>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_min_deg_ub">
-            <option value="none">Maximal Smallest Degree</option>
-        </select>
-    </div>
-</div>
-
-<div class="row p-2">
-    <div class="col-2">
-        <label>Largest Degree</label>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_max_deg_lb">
-            <option value="none">Minimal Largest Degree</option>
-        </select>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_max_deg_ub">
-            <option value="none">Maximal Largest Degree</option>
-        </select>
-    </div>
-</div>
-
-<hr />
-
-<div class="row p-2">
-    <div class="col-2">
-        <label>Number of Connected Components (CC)</label>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_num_ccs_lb">
-            <option value="none">Minimal Number of CCs</option>
-        </select>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_num_ccs_ub">
-            <option value="none">Maximal Number of CCs</option>
-        </select>
-    </div>
-</div>
-
-<div class="row p-2">
-    <div class="col-2">
-        <label>Nodes in Largest Connected Component</label>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_nodes_largest_cc_lb">
-            <option value="none">Minimal Nodes in CC</option>
-        </select>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_nodes_largest_cc_ub">
-            <option value="none">Maximal Nodes in CC</option>
-        </select>
-    </div>
-</div>
-
-<hr />
-
-<div class="row p-2">
-    <div class="col-2">
-        <label>Size of best solution</label>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_best_score_lb">
-            <option value="none">Minimal Solution Size</option>
-        </select>
-        </div>
-        <div class="col-5">
-        <select class="form-control" id="constr_best_score_ub">
-            <option value="none">Maximal Solution Size</option>
-        </select>
-        </div>
-        </div>
-<div class="row p-2">
-    <div class="col-2">
-        <label>Treewidth</label>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_treewidth_lb">
-            <option value="none">Minimal Treewidth</option>
-        </select>
-    </div>
-    <div class="col-5">
-        <select class="form-control" id="constr_treewidth_ub">
-            <option value="none">Maximal Treewidth</option>
-        </select>
-    </div>
-</div>
-
-
-<hr />
-
-<div class="row p-2">
-    <div class="col-2">
-        Topology
-    </div>
-
-    <div class="col-2">
-        <select class="form-control" id="bool_constr_bipartite">
-            <option value="none">filter bipartiteness</option>
-            <option value="true">only bipartite</option>
-            <option value="false">only non-bipartite</option>
-        </select>
-    </div>
-
-    <div class="col-2">
-        <select class="form-control" id="bool_constr_planar">
-            <option value="none">filter planarity</option>
-            <option value="true">only planar</option>
-            <option value="false">only non-planar</option>
-        </select>
-    </div>
-
-    <div class="col-2">
-        <select class="form-control" id="bool_constr_regular">
-            <option value="none">filter regularity</option>
-            <option value="true">only regular</option>
-            <option value="false">only non-regular</option>
-        </select>
-    </div>
-
-    <div class="col-4" style="text-align: right;">
-        <button id="reset_filters" type="button" class="btn btn-danger" disabled>Reset Filters</button>
-    </div>
-</div>
-
-                <div class="row p-2">
-                    <div class="col-2">
-                        <label>Tags</label>
-                    </div>
-                    <div class="col-6">
-                        <select class="form-control" id="tag">
-                            <option value="none">All</option>
-                        </select>
+            <div class="container bg-primary-subtle p-2 run-mode-only mb-3">
+                <div class="row" data-bs-toggle="collapse" data-bs-target="#run-info-form" aria-expanded="true"
+                    aria-controls="run-info-form">
+                    <div class="col-8">
+                        <h3>Run Information and Filters</h3>
                     </div>
                     <div class="col-4" style="text-align: right;">
-                        <button id="download_list" type="button" class="btn btn-primary" disabled>Download</button>
+                        <button class="btn btn-secondary btn-close" data-bs-toggle="collapse"
+                            data-bs-target="#run-info-form" aria-expanded="true" aria-controls="run-info-form"
+                            aria-label="Close"></button>
                     </div>
                 </div>
-            </form>
 
-        <table id="instances" class="table table-dark table-striped table-hover mt-5">
-            <thead>
-                <tr>
-                    <th scope="col" id="header_id" class="sortable num">Id</th>
-                    <th scope="col" id="header_name" class="sortable">Instance</th>
-                    <th scope="col" id="header_nodes" class="sortable num">Nodes</th>
-                    <th scope="col" id="header_edges" class="sortable num">Edges</th>
-                    <th scope="col" id="header_best_score" class="sortable num rot"><span>Best<br />DomSet</span></th>
-                    <th scope="col" id="header_min_deg" class="sortable num rot"><span>Min Deg</span></th>
-                    <th scope="col" id="header_max_deg" class="sortable num rot"><span>Max Deg</span></th>
-                    <th scope="col" id="header_regular" class="sortable bool rot"><span>Reg ular</span></th>
-                    <th scope="col" id="header_num_ccs" class="sortable num rot"><span>Num CCs</span></th>
-                    <th scope="col" id="header_nodes_largest_cc" class="sortable num rot"><span>Max CC</span></th>
-                    <th scope="col" id="header_treewidth" class="sortable num rot"><span>Tree width</span></th>
-                    <th scope="col" id="header_bipartite" class="sortable bool rot"><span>Bipar tite</span></th>
-                    <th scope="col" id="header_planar" class="sortable bool rot"><span>Pla nar</span></th>
-                    <th scope="col" id="header_tools" class="tool"></th>
+                <form id="run-info-form" class="collapse show">
+                    <div class="row">
+                        <div class="col-7">
+                            <div class="row p-2">
+                                <div class="col-4">
+                                    <label>Score</label>
+                                </div>
+                                <div class="col-4">
+                                    <select class="form-control" id="constr_score_lb">
+                                        <option value="none">Minimal Score of this Run</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <select class="form-control" id="constr_score_ub">
+                                        <option value="none">Maximal Score of this Run</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row p-2">
+                                <div class="col-4">
+                                    <label>Score&nbsp;Difference to Best&nbsp;Known</label>
+                                </div>
+                                <div class="col-4">
+                                    <select class="form-control" id="constr_score_diff_lb">
+                                        <option value="none">Minimal Score Difference</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <select class="form-control" id="constr_score_diff_ub">
+                                        <option value="none">Maximal Score Difference</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row p-2">
+                                <div class="col-4">
+                                    <label>Runtime</label>
+                                </div>
+                                <div class="col-4">
+                                    <select class="form-control" id="constr_seconds_computed_lb">
+                                        <option value="none">Minimal Runtime</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <select class="form-control" id="constr_seconds_computed_ub">
+                                        <option value="none">Maximal Runtime</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row p-2">
+                                <div class="col-4">
+                                    <label>Status</label>
+                                </div>
+                                <div class="col-8">
+                                    <select class="form-control" id="constr_result_status">
+                                        <optgroup label="Aggregates">
+                                            <option value="none">All Instances</option>
+                                            <option value="valid">only with valid solution</option>
+                                            <option value="invalid">only without valid solution</option>
+                                        </optgroup>
+                                        <optgroup label="Specific Type">
+                                            <option value="optimal">only Optimal Solutions</option>
+                                            <option value="suboptimal">only Suboptimal Solutions</option>
+                                            <option value="infeasible">only Infeasible Solutions</option>
+                                            <option value="incomplete">only Incomplete Outputs</option>
+                                            <option value="timeout">only Timeouts</option>
+                                            <option value="error">only Errors</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-5">
+                            <table id="run-stats" class="table-fluid table-dark table-striped table-hover mt-3">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th class="num">Num</th>
+                                        <th class="num">Frac</th>
+                                        <th class="num">Avg. Time</th>
+                                    </tr>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="container bg-body-tertiary p-2">
+                <div class="row" data-bs-toggle="collapse" data-bs-target="#instance-filter-form" aria-expanded="true">
+                    <div class="col-8">
+                        <h3>Instance Properties</h3>
+                    </div>
+                    <div class="col-4" style="text-align: right;">
+                        <button class="btn btn-secondary btn-close" data-bs-toggle="collapse"
+                            data-bs-target="#instance-filter-form" aria-expanded="true"
+                            aria-controls="instance-filter-form" aria-label="Close"></button>
+                    </div>
+                </div>
+
+                <form id="instance-filter-form" class="collapse show">
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Nodes</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_nodes_lb">
+                                <option value="none">Minimal Nodes</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_nodes_ub">
+                                <option value="none">Maximal Nodes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Edges</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_edges_lb">
+                                <option value="none">Minimal Edges</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_edges_ub">
+                                <option value="none">Maximal Edges</option>
+                            </select>
+                        </div>
+                    </div>
+                    <hr />
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Smallest Degree</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_min_deg_lb">
+                                <option value="none">Minimal Smallest Degree</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_min_deg_ub">
+                                <option value="none">Maximal Smallest Degree</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Largest Degree</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_max_deg_lb">
+                                <option value="none">Minimal Largest Degree</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_max_deg_ub">
+                                <option value="none">Maximal Largest Degree</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Number of Connected Components (CC)</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_num_ccs_lb">
+                                <option value="none">Minimal Number of CCs</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_num_ccs_ub">
+                                <option value="none">Maximal Number of CCs</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Nodes in Largest Connected Component</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_nodes_largest_cc_lb">
+                                <option value="none">Minimal Nodes in CC</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_nodes_largest_cc_ub">
+                                <option value="none">Maximal Nodes in CC</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Size of best solution</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_best_score_lb">
+                                <option value="none">Minimal Solution Size</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_best_score_ub">
+                                <option value="none">Maximal Solution Size</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Treewidth</label>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_treewidth_lb">
+                                <option value="none">Minimal Treewidth</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <select class="form-control" id="constr_treewidth_ub">
+                                <option value="none">Maximal Treewidth</option>
+                            </select>
+                        </div>
+                    </div>
+
+
+                    <hr />
+
+                    <div class="row p-2">
+                        <div class="col-2">
+                            Topology
+                        </div>
+
+                        <div class="col-2">
+                            <select class="form-control" id="bool_constr_bipartite">
+                                <option value="none">filter bipartiteness</option>
+                                <option value="true">only bipartite</option>
+                                <option value="false">only non-bipartite</option>
+                            </select>
+                        </div>
+
+                        <div class="col-2">
+                            <select class="form-control" id="bool_constr_planar">
+                                <option value="none">filter planarity</option>
+                                <option value="true">only planar</option>
+                                <option value="false">only non-planar</option>
+                            </select>
+                        </div>
+
+                        <div class="col-2">
+                            <select class="form-control" id="bool_constr_regular">
+                                <option value="none">filter regularity</option>
+                                <option value="true">only regular</option>
+                                <option value="false">only non-regular</option>
+                            </select>
+                        </div>
+
+                        <div class="col-4" style="text-align: right;">
+                            <button id="reset_filters" type="button" class="btn btn-danger" disabled>Reset
+                                Filters</button>
+                        </div>
+                    </div>
+
+                    <div class="row p-2">
+                        <div class="col-2">
+                            <label>Tags</label>
+                        </div>
+                        <div class="col-6">
+                            <select class="form-control" id="tag">
+                                <option value="none">All</option>
+                            </select>
+                        </div>
+                        <div class="col-4" style="text-align: right;">
+                            <button id="download_list" type="button" class="btn btn-primary" disabled>Download</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <table id="instances" class="table table-dark table-striped table-hover mt-5">
+                <thead>
+                    <tr>
+                        <th scope="col" id="header_id" class="sortable num">Id</th>
+                        <th scope="col" id="header_name" class="sortable">Instance</th>
+                        <th scope="col" id="header_nodes" class="sortable num">Nodes</th>
+                        <th scope="col" id="header_edges" class="sortable num">Edges</th>
+                        <th scope="col" id="header_best_score" class="sortable num rot"><span>Best<br />DomSet</span>
+                        </th>
+                        <th scope="col" id="header_min_deg" class="sortable group-begin num rot"><span>Min Deg</span>
+                        </th>
+                        <th scope="col" id="header_max_deg" class="sortable num rot"><span>Max Deg</span></th>
+                        <th scope="col" id="header_regular" class="sortable bool rot"><span>Reg ular</span></th>
+                        <th scope="col" id="header_num_ccs" class="sortable group-begin num rot"><span>Num CCs</span>
+                        </th>
+                        <th scope="col" id="header_nodes_largest_cc" class="sortable num rot"><span>Max CC</span></th>
+                        <th scope="col" id="header_treewidth" class="sortable group-begin num rot"><span>Tree
+                                width</span></th>
+                        <th scope="col" id="header_bipartite" class="sortable bool rot"><span>Bipar tite</span></th>
+                        <th scope="col" id="header_planar" class="sortable bool rot"><span>Pla nar</span></th>
+                        <th scope="col" id="header_score" class="run-mode-only run-mode-begin sortable num">Score</th>
+                        <th scope="col" id="header_score_diff" class="run-mode-only sortable num">Score Diff</th>
+                        <th scope="col" id="header_seconds_computed" class="run-mode-only sortable num">Runtime</th>
                     </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Data will be populated here -->
-                    </tbody>
-                    </table>
-        <div class="text-center">
-                    <nav aria-label="Page navigation example">
-                        <ul class="pagination justify-content-md-center" id="pagination">
-                        </ul>
-                        </nav>
-        </div>
+                </thead>
+                <tbody>
+                    <!-- Data will be populated here -->
+                </tbody>
+            </table>
+            <div class="text-center">
+                <nav aria-label="Page navigation example">
+                    <ul class="pagination justify-content-md-center" id="pagination">
+                    </ul>
+                </nav>
+            </div>
         </main>
 
-</div>
+    </div>
 
 
-<script src="libs/bootstrap.bundle.min.js"></script>
-<script src="js/index.js"></script>
+    <script src="libs/bootstrap.bundle.min.js"></script>
+    <script src="js/index.js"></script>
 </body>
 
 </html>

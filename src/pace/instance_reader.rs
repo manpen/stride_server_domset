@@ -100,7 +100,7 @@ impl<R: BufRead> PaceReader<R> {
         let mut parts = line.split(' ').filter(|t| !t.is_empty());
 
         raise_error_unless!(
-            parts.next().map_or(false, |t| t.starts_with('p')),
+            parts.next().is_some_and(|t| t.starts_with('p')),
             ErrorKind::InvalidData,
             "Invalid header found; line should start with p"
         );

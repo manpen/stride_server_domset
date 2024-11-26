@@ -22,7 +22,7 @@ impl Solution {
         nodes_upper_bound: Option<NumNodes>,
     ) -> Result<Self> {
         for u in solution.iter_mut() {
-            if *u == 0 || nodes_upper_bound.map_or(false, |n| *u > n) {
+            if *u == 0 || nodes_upper_bound.is_some_and(|n| *u > n) {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "Node id out of range",
@@ -45,7 +45,7 @@ impl Solution {
         for node in reader {
             let node = node?;
 
-            if nodes_upper_bound.map_or(false, |x| node >= x) {
+            if nodes_upper_bound.is_some_and(|x| node >= x) {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "Node id larger than the number of nodes in the header",

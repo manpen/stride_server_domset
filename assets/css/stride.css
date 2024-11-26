@@ -37,10 +37,14 @@ td .desc {
     width: 3em;
 }
 
-#instances th.tool,
-#instances td.tool {
-    width: 1em;
-    text-align: right;
+#instances th.group-begin,
+#instances td.group-begin {
+    border-left-width: var(--bs-border-width);
+}
+
+#instances th.run-mode-begin,
+#instances td.run-mode-begin {
+    border-left-width: 2*var(--bs-border-width);
 }
 
 #pagination {
@@ -123,6 +127,9 @@ th.sortable {
     color: var(--bs-success-text-emphasis);
 }
 
+#instances tbody tr:nth-of-type(2n+1) td.run-mode-only {
+    background: var(--bs-info-bg-subtle);
+}
 #run-stats tr :nth-child(1) {
     padding-right: 3rem;
 }

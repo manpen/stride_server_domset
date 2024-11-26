@@ -26,7 +26,7 @@ pub enum SolverResult {
     Empty, // internal use only, to allow moving solutions out without copying
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum SolverResultType {
     Valid = 1,
     Infeasible = 2,
@@ -48,7 +48,9 @@ impl TryFrom<u32> for SolverResultType {
             x if x == SolverResultType::NonCompetitive as u32 => {
                 Ok(SolverResultType::NonCompetitive)
             }
-            x if x == SolverResultType::IncompleteOutput as u32 => Ok(SolverResultType::IncompleteOutput),
+            x if x == SolverResultType::IncompleteOutput as u32 => {
+                Ok(SolverResultType::IncompleteOutput)
+            }
             _ => Err(anyhow::anyhow!("Invalid SolverResultType value")),
         }
     }
@@ -317,9 +319,11 @@ pub async fn solution_upload_handler(
         | SolverResult::SyntaxError
         | SolverResult::Timeout
         | SolverResult::NonCompetitive
-        | SolverResult::IncompleteOutput => handle_invalid_solution(app_state, request, result_type)
-            .await?
-            .into_response(),
+        | SolverResult::IncompleteOutput => {
+            handle_invalid_solution(app_state, request, result_type)
+                .await?
+                .into_response()
+        }
         SolverResult::Empty => return error_bad_request!("Empty solution result"),
     })
 }

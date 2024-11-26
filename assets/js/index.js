@@ -1,6 +1,33 @@
+function isValidUUID(uuid) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+}
+
+const SOLVER = new URLSearchParams(window.location.search).get('solver');
+const RUN = new URLSearchParams(window.location.search).get('run');
+const RUN_MODE = (SOLVER !== null) && (RUN !== null);
+
+if (RUN_MODE && !isValidUUID(SOLVER)) {
+    alert('Invalid solver_uuid');
+    window.location.href = '/';
+}
+
+if (RUN_MODE && !isValidUUID(RUN)) {
+    alert('Invalid run_uuid');
+    window.location.href = '/';
+}
+
+if (RUN_MODE) {
+    document.querySelector('#breadcrumb-solver').href += `?solver=${SOLVER}`;
+
+} else {
+    document.querySelectorAll(".run-mode-only").forEach((e) => e.remove());
+}
+
 const apiBase = '/api/';
 const apiTags = apiBase + 'tags';
 const apiInstances = apiBase + 'instances';
+const apiSolverRunList = apiBase + `solver_run/list?solver=${SOLVER}&run=${RUN}`;
 
 let tags = null;
 
@@ -39,49 +66,58 @@ function populateTags() {
     }
 }
 
-function buildFilterList() {
-    let list = [
-        "sort_direction=" + filterOptions["direction"],
-        "sort_by=" + filterOptions["order_by"]
-    ];
+function buildFilter() {
+    let filter = {
+        sort_direction: filterOptions["direction"],
+        sort_by: filterOptions["order_by"],
+    }
+
+    if (RUN_MODE) {
+        filter["run"] = RUN;
+        filter["solver"] = SOLVER;
+    }
 
     if (document.querySelector("#tag").value != "none") {
-        list.push("tag=" + document.querySelector("#tag").value);
+        filter["tag"] = document.querySelector("#tag").value;
     }
 
     document.querySelectorAll(".form-control").forEach((e) => {
+        function update(key, value) {
+            if (value == "none") { return; }
+
+            if (parseInt(value)) {
+                value = parseInt(value);
+            }
+
+            filter[key] = value;
+        }
+
         if (e.id.startsWith("constr_")) {
-            if (e.value == "none") { return; }
-            const key = e.id.replace("constr_", "");
-            list.push(`${key}=${e.value}`);
+            update(e.id.replace("constr_", ""), e.value)
+
         } else if (e.id.startsWith("bool_constr_")) {
-            const key = e.id.replace("bool_constr_", "");
-            if (e.value == "none") { return; }
-            list.push(`${key}=${e.value}`);
+            update(e.id.replace("bool_constr_", ""), e.value);
         }
     });
 
-
-    return list;
+    return filter;
 }
 
 function fetchData(include_tags = false, include_max_values = false) {
-    let opts = buildFilterList();
+    let filters = buildFilter();
 
-    document.querySelector("#reset_filters").disabled = (opts.length == 2);
+    // TODO: fix document.querySelector("#reset_filters").disabled = (filters.length == 2);
 
-    opts.push("page=" + filterOptions["current_page"]);
-    opts.push("limit=100");
+    filters["page"] = filterOptions["current_page"];
+    filters["limit"] = 100;
 
     if (include_tags) {
-        opts.push("include_tag_list=true");
+        filters["include_tag_list"] = true;
     }
 
     if (include_max_values) {
-        opts.push("include_max_values=true");
+        filters["include_max_values"] = true;
     }
-
-    opts = opts.join("&");
 
     {
         const cls = "table-primary";
@@ -89,7 +125,14 @@ function fetchData(include_tags = false, include_max_values = false) {
         document.querySelector(`#instances #header_${filterOptions.order_by}`).classList.add(cls);
     }
 
-    fetch(`${apiInstances}?${opts}`)
+    fetch(`${apiInstances}`, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(filters)
+    })
         .then(response => response.json())
         .then(data => {
             if (include_tags) {
@@ -116,6 +159,7 @@ function fetchData(include_tags = false, include_max_values = false) {
 }
 
 function populateTable(instances) {
+    const tableHeader = document.querySelector('#instances thead tr');
     const tableBody = document.querySelector('#instances tbody');
     tableBody.innerHTML = '';
     instances.forEach(ins => {
@@ -123,7 +167,21 @@ function populateTable(instances) {
 
         ins.regular = (ins.min_deg == ins.max_deg);
 
-        function add_td(key, fmt = "num", if_unknown = "?", order_by_key = null) {
+        function create_td(value, fmt, order_by_key) {
+            let elem = document.createElement("td");
+            elem.classList.add(fmt);
+
+            if (filterOptions.order_by == order_by_key) {
+                elem.classList.add("table-primary");
+            }
+
+            elem.innerText = value;
+            row.appendChild(elem);
+
+            return elem;
+        }
+
+        function add_td(key, fmt = "num", if_unknown = "?", order_by = null) {
             let value = ins[key];
 
             if (value === null || value === undefined) {
@@ -144,26 +202,26 @@ function populateTable(instances) {
                 }
             }
 
-            let elem = document.createElement("td");
-            elem.classList.add(fmt);
-
-            if (order_by_key === null) {
-                order_by_key = key;
+            const col_idx = row.querySelectorAll("td").length;
+            let elem = create_td(value, fmt, order_by === null ? key : order_by);
+            const header_elem = tableHeader.querySelectorAll("th")[col_idx];
+            if (header_elem.classList.contains("group-begin")) {
+                elem.classList.add("group-begin");                
             }
-
-            if (filterOptions.order_by == order_by_key) {
-                elem.classList.add("table-primary");
-            }
-
-            elem.innerText = value;
-            row.appendChild(elem);
         }
 
         add_td("iid", "num", null, "id");
 
         {
             let name_elem = document.createElement("td");
-            name_elem.innerHTML = `<span class="name">${ins.name}</span><span class="tags"></span><p class="desc">${ins.description}</p>`;
+            name_elem.innerHTML = `<span class="name">${ins.name}</span>
+                        <a href="${apiBase}instances/download/${ins.iid}" alt="Download Instance ${ins.iid}">⬇️</a>
+                        <span class="tags"></span><p class="desc">${ins.description}</p>`;
+
+            if (filterOptions.order_by == "name") {
+                name_elem.classList.add("table-primary");
+            }
+
             row.appendChild(name_elem);
         }
 
@@ -180,11 +238,54 @@ function populateTable(instances) {
         add_td("bipartite", "bool");
         add_td("planar", "bool");
 
-        {
-            let action_elem = document.createElement("td");
-            action_elem.classList.add("tool");
-            action_elem.innerHTML = `<a href="${apiBase}instances/download/${ins.iid}" alt="Download">⬇️</a>`;
-            row.appendChild(action_elem);
+        if (RUN_MODE) {
+            const sol = ins.solution;
+
+            if (sol.score) {
+                const url = `/api/solutions/download?iid=${ins.iid}&solver=${SOLVER}&run=${RUN}`;
+                let score_elem = create_td("", "num", "score");
+
+                score_elem.innerHTML = sol.score + "&nbsp;";
+
+                {
+                    let score_a = document.createElement("a");
+                    score_a.href = url;
+                    score_a.innerText = "⬇️";
+                    score_elem.appendChild(score_a);
+                }
+
+                let score_diff_elem = create_td(sol.score - ins.best_score, "num", "score_diff");
+
+                score_elem.classList.add("run-mode-begin");
+                score_elem.classList.add("run-mode-only");
+                score_diff_elem.classList.add("run-mode-only");
+
+                if (sol.score == ins.best_score) {
+                    score_elem.classList.add("optimal");
+                    score_diff_elem.classList.add("optimal");
+                }
+            } else {
+                let elem = document.createElement("td");
+                let code = sol.error_code;
+                if (code.startsWith("Incomplete")) { code = "Incomplete"; }
+                elem.innerText = code;
+                elem.colSpan = 2;
+                elem.classList.add("status");
+                elem.classList.add("run-mode-begin");
+
+                if (code == "Incomplete" || code == "Timeout") {
+                    elem.classList.add("warning");
+                } else {
+                    elem.classList.add("error");
+                }
+
+                elem.classList.add("run-mode-only");
+                row.appendChild(elem);
+            }
+
+            const time = sol.seconds_computed.toFixed(1) + "s";
+            let runtime_elem = create_td(time, "num", "runtime");
+            runtime_elem.classList.add("run-mode-only");
         }
 
         ins.tags.forEach(tid => {
@@ -261,6 +362,12 @@ function populateMaxValues(max_values) {
     populate("num_ccs", "$ connected comps.");
     populate("nodes_largest_cc", "$ nodes in largest cc");
     populate("best_score", "$ nodes in domset");
+
+    if (RUN_MODE) {
+        populate("score", "$ nodes in domset");
+        populate("score_diff", "$ more than best known");
+        populate("seconds_computed", "$ seconds");
+    }
 }
 
 function updateBoolFilters(key, elem) {
@@ -368,8 +475,12 @@ function setupPagination(current, total) {
 fetchData(include_tags = true, include_max_values = true);
 
 document.querySelector("#download_list").onclick = function () {
-    let opts = buildFilterList();
-    window.location.href = `${apiBase}instance_list?${opts.join("&")}`;
+    let opts = buildFilter();
+
+    const opts_list = Object.entries(opts).map(([key, value]) => `${key}=${encodeURIComponent(value)}`);
+    const params = opts_list.join("&");
+
+    window.location.href = `${apiBase}instance_list?${params}`;
 };
 
 document.querySelectorAll("#instances thead .sortable").forEach((th) => {
@@ -416,3 +527,60 @@ document.querySelector("#reset_filters").addEventListener("click", () => {
 
     fetchData();
 });
+
+
+function populateRunHeader(data) {
+    const run = data.runs[0];
+    const name = run.name ? run.name : `Run ${run.run_uuid}`;
+
+    document.querySelector("#run-name").innerText = name;
+    document.querySelector("#run-description").innerText = run.description;
+
+    const total_num = run.num_optimal + run.num_suboptimal + run.num_infeasible + run.num_error + run.num_timeout + run.num_incomplete;
+    const total_width = (run.num_scheduled ? run.num_scheduled : total_num);
+
+    let stats_tbody = document.querySelector("#run-stats tbody");
+    stats_tbody.innerHTML = "";
+
+    function add_row(title, key, cls) {
+        const num = run["num_" + key];
+        const time = num ? ((run["seconds_computed_" + key] / num).toFixed(1) + "s") : "n/a";
+
+        let row = document.createElement("tr");
+        if (cls) { row.classList.add(cls); }
+
+        let title_elem = document.createElement("td");
+        title_elem.innerText = title;
+        row.appendChild(title_elem);
+
+        let num_elem = document.createElement("td");
+        num_elem.classList.add("num");
+        num_elem.innerText = num;
+        row.appendChild(num_elem);
+
+        let frac_elem = document.createElement("td");
+        frac_elem.classList.add("num");
+        frac_elem.innerText = (num / total_width * 100).toFixed(1) + "%";
+        row.appendChild(frac_elem);
+
+        let time_elem = document.createElement("td");
+        time_elem.classList.add("num");
+        time_elem.innerText = time;
+        row.appendChild(time_elem);
+
+
+        stats_tbody.appendChild(row);
+    }
+
+    add_row("Optimal instances", "optimal", "optimal");
+    add_row("Suboptimal instances", "suboptimal", "");
+    add_row("No/incomplete sol.", "incomplete", "warning");
+    add_row("Timeout instances", "timeout", "warning");
+    add_row("Infeasible instances", "infeasible", "error");
+    add_row("Error instances", "error", "error");
+}
+
+// setup header
+if (RUN_MODE) {
+    fetch(apiSolverRunList).then(response => response.json()).then(populateRunHeader);
+}

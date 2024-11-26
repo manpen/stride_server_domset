@@ -54,12 +54,14 @@ struct RunResponse {
     num_infeasible: u32,
     num_error: u32,
     num_timeout: u32,
+    num_incomplete: u32,
 
     seconds_computed_optimal: f64,
     seconds_computed_suboptimal: f64,
     seconds_computed_infeasible: f64,
     seconds_computed_error: f64,
     seconds_computed_timeout: f64,
+    seconds_computed_incomplete: f64,
 }
 
 impl TryFrom<RunModel> for RunResponse {
@@ -101,12 +103,14 @@ impl TryFrom<RunModel> for RunResponse {
             num_infeasible: 0,
             num_error: 0,
             num_timeout: 0,
+            num_incomplete: 0,
 
             seconds_computed_optimal: 0.0,
             seconds_computed_suboptimal: 0.0,
             seconds_computed_infeasible: 0.0,
             seconds_computed_error: 0.0,
             seconds_computed_timeout: 0.0,
+            seconds_computed_incomplete: 0.0,
         })
     }
 }
@@ -282,6 +286,8 @@ pub async fn solver_run_list_handler(
         update_resp!(infeasible, +=, SolutionTypes::Infeasible);
         update_resp!(error, +=, SolutionTypes::Error);
         update_resp!(timeout, +=, SolutionTypes::Timeout);
+
+        update_resp!(incomplete, +=, SolutionTypes::IncompleteOutput);
 
         run_response.push(resp);
     }

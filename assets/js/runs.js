@@ -81,7 +81,7 @@ function populateRuns(data) {
         let h4 = add_content("h4", "name", name);
         h4.addEventListener("click", (e) => {
             const run = getRunUuid(e.target);
-            window.location.href = `/run.html?solver=${SOLVER}&run=${run}`;
+            window.location.href = `/index.html?solver=${SOLVER}&run=${run}`;
         });
 
         let tools = add_content("div", "tools", "");
@@ -162,7 +162,7 @@ function populateRuns(data) {
         ////
 
         const total_num =
-            run.num_optimal + run.num_suboptimal + run.num_infeasible + run.num_error + run.num_timeout;
+            run.num_optimal + run.num_suboptimal + run.num_infeasible + run.num_error + run.num_timeout + run.num_incomplete;
 
         run.num_error + run.num_infeasible + run.num_valid + run.num_optimal;
         const total_width = (run.num_scheduled ? run.num_scheduled : total_num);
@@ -201,6 +201,7 @@ function populateRuns(data) {
         add_block(run.num_suboptimal, [], "Subopt:<br/> $");
         add_block(run.num_infeasible, ["bg-danger"], "Infeasible:<br/> $");
         add_block(run.num_timeout, ["bg-warning"], "Timeout:<br/> $");
+        add_block(run.num_incomplete, ["bg-warning"], "Incomplete:<br/> $");
         add_block(run.num_error, ["bg-danger"], "Error:<br/> $");
         add_block(total_width - total_num, ["bg-info", "rogress-bar-striped"], "", "Scheduled:<br/> $");
 
@@ -232,6 +233,7 @@ function populateRuns(data) {
             add_field("Optimal", "optimal", "text-optimal");
             add_field("Suboptimal", "suboptimal", "text-suboptimal");
             add_field("Infeasible", "infeasible", "text-infeasible");
+            add_field("Incomplete", "incomplete", "text-warning");
             add_field("Timeout", "timeout", "text-warning");
             add_field("Error", "error", "text-error");
         }

@@ -91,34 +91,11 @@ pub struct FilterOptions {
     #[serde(default)]
     pub include_max_values: bool,
 
-    // using an own type for solver_filter guarantees that the user has to provide both
-    // solver_uuid and run_uuid before having access to the remaining filters
-    #[serde(default, skip_serializing_if = "Option::is_none", flatten)]
-    pub run_filters: Option<SolverFilter>,
-}
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    solver: Option<Uuid>,
 
-impl FilterOptions {
-    fn check_validity(&self) -> HandlerResult<()> {
-        if self.run_filters.is_none() {
-            match self.sort_by {
-                SortBy::Score | SortBy::ScoreDiff | SortBy::SecondsComputed | SortBy::ErrorCode => {
-                    return Err(anyhow::anyhow!(
-                        "solver_filter is required when sorting by score, score_diff, seconds_computed or error_code"
-                    )
-                    .into());
-                }
-                _ => {}
-            }
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug, Default)]
-pub struct SolverFilter {
-    solver: Uuid,
-    run: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    run: Option<Uuid>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub score_lb: Option<u32>,
@@ -136,7 +113,7 @@ pub struct SolverFilter {
     pub seconds_computed_ub: Option<f64>,
 
     #[serde(default)]
-    pub status: ResultStatusFilter,
+    pub result_status: ResultStatusFilter,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
@@ -200,6 +177,13 @@ pub enum SortBy {
     #[serde(alias = "error_code")]
     ErrorCode, // avaliable only when solver_filter is provided
 }
+
+const SORT_BY_ONLY_WITH_RUN : [SortBy; 4] = [
+    SortBy::Score,
+    SortBy::ScoreDiff,
+    SortBy::SecondsComputed,
+    SortBy::ErrorCode,
+];
 
 impl SortBy {
     fn to_sql_fields(self) -> &'static str {
@@ -340,6 +324,47 @@ struct InstanceResult {
     solution: Option<SolutionResult>,
 }
 
+impl FilterOptions {
+    fn check_validity(&self) -> HandlerResult<()> {
+        if self.run.is_some() != self.solver.is_some() {
+            return Err(anyhow::anyhow!("solver and run must be both provided or both not").into());
+        }
+
+
+        if self.run.is_none() {
+            // assert that no fields are set that require run-mode
+            if self.score_lb.is_some()
+                || self.score_ub.is_some()
+                || self.score_diff_lb.is_some()
+                || self.score_diff_ub.is_some()
+                || self.seconds_computed_lb.is_some()
+                || self.seconds_computed_ub.is_some()
+                || self.result_status != ResultStatusFilter::None
+            {
+                return Err(anyhow::anyhow!(
+                    "solver and run must be provided when filtering by score, score_diff, seconds_computed or status"
+                )
+                .into());
+            }
+
+            if SORT_BY_ONLY_WITH_RUN.iter().contains(& self.sort_by ) {
+                return Err(anyhow::anyhow!(
+                    "sort-by option requires solver and run to be provided"
+                )
+                .into());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn solver_and_run_strings(&self) -> Option<(String, String)> {
+        let run = self.run?.simple().to_string();
+        let solver = self.solver?.simple().to_string();
+        Some((solver, run))
+    }
+}
+
 fn append_filters_to_query_builder<'a, DB>(
     mut builder: QueryBuilder<'a, DB>,
     opts: &'a FilterOptions,
@@ -404,16 +429,16 @@ where
         }
     }
 
-    if let Some(solver_filter) = &opts.run_filters {
+    if let Some((_solver, run)) = opts.solver_and_run_strings() {
         builder.push(" AND s.sr_uuid = UNHEX(");
-        builder.push_bind(solver_filter.run.simple().to_string());
+        builder.push_bind(run);
         builder.push(")");
 
-        append_range_filter!(solver_filter, score, "s.score");
-        append_range_filter!(solver_filter, score_diff, "s.score - i.best_score");
-        append_range_filter!(solver_filter, seconds_computed, "s.seconds_computed");
+        append_range_filter!(opts, score, "s.score");
+        append_range_filter!(opts, score_diff, "s.score - i.best_score");
+        append_range_filter!(opts, seconds_computed, "s.seconds_computed");
 
-        match solver_filter.status {
+        match opts.result_status {
             ResultStatusFilter::None => {}
             ResultStatusFilter::Valid => {
                 builder.push(" AND s.score IS NOT NULL ");
@@ -452,7 +477,7 @@ where
 async fn count_matches(opts: &FilterOptions, app_data: &Arc<AppState>) -> HandlerResult<u32> {
     let mut builder = sqlx::QueryBuilder::new(r#"SELECT COUNT(*) as cnt FROM `Instance` i "#);
 
-    if opts.run_filters.is_some() {
+    if opts.run.is_some() {
         builder.push(" JOIN Solution s ON i.iid = s.instance_iid ");
     }
 
@@ -483,7 +508,7 @@ async fn retrieve_instances(
             GROUP_CONCAT(tag_tid) as tags, "#,
     );
 
-    if opts.run_filters.is_some() {
+    if opts.run.is_some() {
         builder.push(
             r#" 
             HEX(s.solution_hash) as `solution_hash`, s.error_code, s.score, s.seconds_computed
@@ -512,7 +537,7 @@ async fn retrieve_instances(
     builder = append_filters_to_query_builder(builder, opts)?;
 
     builder.push(" GROUP BY i.iid ");
-    if opts.run_filters.is_some() {
+    if opts.run.is_some() {
         builder.push(", s.sr_uuid");
     }
 
@@ -545,14 +570,7 @@ async fn compute_max_values(
     opts: &FilterOptions,
     app_data: &Arc<AppState>,
 ) -> HandlerResult<MaxValues> {
-    let run = opts
-        .run_filters
-        .as_ref()
-        .map_or_else(Default::default, |f| f.run.simple().to_string());
-    let solver = opts
-        .run_filters
-        .as_ref()
-        .map_or_else(Default::default, |f| f.solver.simple().to_string());
+    let solver_and_run = opts.solver_and_run_strings();
 
     let values : MaxValues = conditional_query_as!(
         MaxValues,
@@ -566,21 +584,21 @@ async fn compute_max_values(
             MAX(best_score)as best_score,
             MAX(nodes_largest_cc) as nodes_largest_cc,
             {#rest}"#,
-        #rest = match &opts.run_filters {
+        #rest = match solver_and_run {
             None => "NULL as 'score: u32', NULL as 'score_diff: i32', NULL as 'seconds_computed: f64' FROM `Instance` i",
-            Some(_) => r#"
+            Some((solver_s, run_s)) => r#"
                 MAX(s.score) as score, MAX(s.score - i.best_score) as 'score_diff: i32', MAX(s.seconds_computed) as seconds_computed
             FROM `Instance` i
             JOIN Solution s ON i.iid = s.instance_iid
             JOIN SolverRun sr ON s.sr_uuid = sr.run_uuid
-            WHERE sr.solver_uuid = UNHEX({solver}) AND sr.run_uuid = UNHEX({run})
+            WHERE sr.solver_uuid = UNHEX({solver_s}) AND sr.run_uuid = UNHEX({run_s})
             "#,
         }
     )
     .fetch_one(app_data.db())
     .await?;
 
-    if values.score_diff.map_or(false, |x| x < 0) {
+    if values.score_diff.is_some_and(|x| x < 0) {
         return Err(anyhow::anyhow!("score_diff is negative").into());
     }
 
@@ -610,7 +628,7 @@ pub async fn instance_list_handler(
                     .collect::<Vec<_>>()
             });
 
-            let solution = if opts.run_filters.is_some() {
+            let solution = if opts.run.is_some() {
                 Some(SolutionResult {
                     solution_hash: model.solution_hash.clone(),
                     error_code: SolverResultType::try_from(model.error_code? as u32).ok()?,
@@ -669,7 +687,7 @@ pub async fn instance_list_download_handler(
     let list_as_string = {
         let mut builder = sqlx::QueryBuilder::new(r#"SELECT i.iid FROM `Instance` i "#);
 
-        if opts.run_filters.is_some() {
+        if opts.run.is_some() {
             builder.push(" JOIN Solution s ON i.iid = s.instance_iid ");
         }
 
@@ -718,63 +736,87 @@ mod tests {
     use crate::server::app_state::DbPool;
     use strum::IntoEnumIterator;
 
-    macro_rules! sf {
-        ($key:ident, $value:expr) => {
-            SolverFilter {
-                run: Uuid::parse_str("00000000-0000-0000-0001-000000000000").unwrap(),
-                solver: Uuid::parse_str("00000000-0000-0000-0002-000000000000").unwrap(),
-                $key: $value,
-                ..Default::default()
-            }
-        };
+    const RUN_MODE: bool = true;
+
+    fn run_uuid() -> Uuid {
+        Uuid::parse_str("00000000-0000-0000-0001-000000000000").unwrap()
+    }
+
+    fn solver_uuid() -> Uuid {
+        Uuid::parse_str("00000000-0000-0000-0002-000000000000").unwrap()
     }
 
     #[sqlx::test(fixtures("instances", "solutions"))]
     async fn instance_list_handler_order_by(db_pool: DbPool) -> sqlx::Result<()> {
-        for order in SortBy::iter() {
-            let req = FilterOptions {
-                sort_by: order,
-                run_filters: Some(sf!(score_lb, Some(0))),
-                ..Default::default()
-            };
+        for run_mode in [false, true] {
+            for order in SortBy::iter() {
+                if !run_mode && SORT_BY_ONLY_WITH_RUN.iter().contains(&order) {
+                    continue;
+                }
 
-            let state = Arc::new(AppState::new(db_pool.clone()));
-            let resp = super::instance_list_handler(State(state), Json(req)).await;
+                let mut req = FilterOptions {
+                    sort_by: order,
+                    ..Default::default()
+                };
 
-            assert!(resp.unwrap().into_response().status().is_success());
+                if run_mode {
+                    req.run = Some(run_uuid());
+                    req.solver = Some(solver_uuid());
+                }
+
+                let state = Arc::new(AppState::new(db_pool.clone()));
+                let resp = super::instance_list_handler(State(state), Json(req)).await;
+
+                assert!(resp.unwrap().into_response().status().is_success());
+            }
         }
 
         Ok(())
     }
 
     #[sqlx::test(fixtures("instances"))]
-    async fn instance_list_download_handler(db_pool: DbPool) -> sqlx::Result<()> {
-        for order in SortBy::iter() {
-            let req = FilterOptions {
-                sort_by: order,
-                run_filters: Some(sf!(score_lb, Some(0))),
-                ..Default::default()
-            };
+    async fn instance_list_download_handler_order_by(db_pool: DbPool) -> sqlx::Result<()> {
+        for run_mode in [false, true] {
+            for order in SortBy::iter() {
+                if !run_mode && SORT_BY_ONLY_WITH_RUN.iter().contains(&order) {
+                    continue;
+                }
 
-            let state = Arc::new(AppState::new(db_pool.clone()));
-            let resp = super::instance_list_handler(State(state), Json(req)).await;
+                let mut req = FilterOptions {
+                    sort_by: order,
+                    ..Default::default()
+                };
 
-            assert!(resp.unwrap().into_response().status().is_success());
+                if run_mode {
+                    req.run = Some(run_uuid());
+                    req.solver = Some(solver_uuid());
+                }
+
+                let state = Arc::new(AppState::new(db_pool.clone()));
+                let resp = super::instance_list_handler(State(state), Json(req)).await;
+
+                assert!(resp.unwrap().into_response().status().is_success());
+            }
         }
 
         Ok(())
     }
 
     macro_rules! test_filter_option {
-        ($name:ident, $values:expr) => {test_filter_option!($name, $name, $values);};
-        ($name:ident, $key:ident, $values:expr) => {paste::paste! {
+        ($key:ident, $values:expr) => {test_filter_option!($key, $values, false);};
+        ($key:ident, $values:expr, $run_mode:expr) => {paste::paste! {
             #[sqlx::test(fixtures("instances"))]
-            async fn [<filter_option_list_ $name>](db_pool: DbPool) -> sqlx::Result<()> {
+            async fn [<filter_option_list_ $key>](db_pool: DbPool) -> sqlx::Result<()> {
                 for v in $values {
-                    let req = FilterOptions {
-                        $key: Some(v),
+                    let mut req = FilterOptions {
+                        $key: v,
                         ..Default::default()
                     };
+
+                    if $run_mode {
+                        req.run = Some(run_uuid());
+                        req.solver = Some(solver_uuid());
+                    }
 
                     let state = Arc::new(AppState::new(db_pool.clone()));
                     let resp = super::instance_list_handler(State(state), Json(req)).await;
@@ -784,15 +826,20 @@ mod tests {
             }
 
             #[sqlx::test(fixtures("instances"))]
-            async fn [<filter_option_download_ $name>](db_pool: DbPool) -> sqlx::Result<()> {
+            async fn [<filter_option_download_ $key>](db_pool: DbPool) -> sqlx::Result<()> {
                 for v in $values {
-                    let req = FilterOptions {
-                        $key: Some(v),
+                    let mut req = FilterOptions {
+                        $key: v,
                         ..Default::default()
                     };
 
+                    if $run_mode {
+                        req.run = Some(run_uuid());
+                        req.solver = Some(solver_uuid());
+                    }
+
                     let state = Arc::new(AppState::new(db_pool.clone()));
-                    let resp = super::instance_list_download_handler(Some(Query(req)), State(state)).await;
+                    let resp = super::instance_list_download_handler(Query(req), State(state)).await;
                     assert!(resp.unwrap().into_response().status().is_success());
                 }
                 Ok(())
@@ -800,67 +847,52 @@ mod tests {
         }};
     }
 
-    test_filter_option!(run_score_lb, run_filters, [sf!(score_lb, Some(1))]);
-    test_filter_option!(run_score_ub, run_filters, [sf!(score_ub, Some(2))]);
+    test_filter_option!(score_lb, [Some(0), Some(1)], RUN_MODE);
+    test_filter_option!(score_ub, [Some(0), Some(1)], RUN_MODE);
 
+    test_filter_option!(score_diff_lb, [Some(0), Some(1)], RUN_MODE);
+    test_filter_option!(score_diff_ub, [Some(0), Some(1)], RUN_MODE);
+    
+    test_filter_option!(seconds_computed_lb, [Some(0.1), Some(1.1)], RUN_MODE);
+    test_filter_option!(seconds_computed_ub, [Some(1.1), Some(2.1)], RUN_MODE);
+    
+    
     test_filter_option!(
-        run_score_diff_lb,
-        run_filters,
-        [sf!(score_diff_lb, Some(1))]
-    );
-    test_filter_option!(
-        run_score_diff_ub,
-        run_filters,
-        [sf!(score_diff_ub, Some(2))]
-    );
-
-    test_filter_option!(
-        run_seconds_computed_lb,
-        run_filters,
-        [sf!(seconds_computed_lb, Some(0.1))]
-    );
-    test_filter_option!(
-        run_seconds_computed_ub,
-        run_filters,
-        [sf!(seconds_computed_ub, Some(2.0))]
-    );
-
-    test_filter_option!(
-        run_status,
-        run_filters,
+        result_status,
         [
-            sf!(status, ResultStatusFilter::None),
-            sf!(status, ResultStatusFilter::Valid),
-            sf!(status, ResultStatusFilter::Invalid),
-            sf!(status, ResultStatusFilter::Optimal),
-            sf!(status, ResultStatusFilter::Suboptimal),
-            sf!(status, ResultStatusFilter::Incomplete),
-            sf!(status, ResultStatusFilter::Infeasible),
-            sf!(status, ResultStatusFilter::Timeout),
-            sf!(status, ResultStatusFilter::Error),
-        ]
+            ResultStatusFilter::None,
+            ResultStatusFilter::Valid,
+            ResultStatusFilter::Invalid,
+            ResultStatusFilter::Optimal,
+            ResultStatusFilter::Suboptimal,
+            ResultStatusFilter::Incomplete,
+            ResultStatusFilter::Infeasible,
+            ResultStatusFilter::Timeout,
+            ResultStatusFilter::Error,
+        ],
+        RUN_MODE
     );
 
-    test_filter_option!(tag, [0, 1]);
-    test_filter_option!(nodes_lb, [0, 1]);
-    test_filter_option!(nodes_ub, [0, 1]);
-    test_filter_option!(edges_lb, [0, 1]);
-    test_filter_option!(edges_ub, [0, 1]);
-    test_filter_option!(best_score_lb, [0, 1]);
-    test_filter_option!(best_score_ub, [0, 1]);
-    test_filter_option!(min_deg_lb, [0, 1]);
-    test_filter_option!(min_deg_ub, [0, 1]);
-    test_filter_option!(max_deg_lb, [0, 1]);
-    test_filter_option!(max_deg_ub, [0, 1]);
-    test_filter_option!(num_ccs_lb, [0, 1]);
-    test_filter_option!(num_ccs_ub, [0, 1]);
-    test_filter_option!(nodes_largest_cc_lb, [0, 1]);
-    test_filter_option!(nodes_largest_cc_ub, [0, 1]);
-    test_filter_option!(diameter_lb, [0, 1]);
-    test_filter_option!(diameter_ub, [0, 1]);
-    test_filter_option!(treewidth_lb, [0, 1]);
-    test_filter_option!(treewidth_ub, [0, 1]);
-    test_filter_option!(planar, [false, true]);
-    test_filter_option!(bipartite, [false, true]);
-    test_filter_option!(regular, [false, true]);
+    test_filter_option!(tag, [Some(0), Some(1)]);
+    test_filter_option!(nodes_lb, [Some(0), Some(1)]);
+    test_filter_option!(nodes_ub, [Some(0), Some(1)]);
+    test_filter_option!(edges_lb, [Some(0), Some(1)]);
+    test_filter_option!(edges_ub, [Some(0), Some(1)]);
+    test_filter_option!(best_score_lb, [Some(0), Some(1)]);
+    test_filter_option!(best_score_ub, [Some(0), Some(1)]);
+    test_filter_option!(min_deg_lb, [Some(0), Some(1)]);
+    test_filter_option!(min_deg_ub, [Some(0), Some(1)]);
+    test_filter_option!(max_deg_lb, [Some(0), Some(1)]);
+    test_filter_option!(max_deg_ub, [Some(0), Some(1)]);
+    test_filter_option!(num_ccs_lb, [Some(0), Some(1)]);
+    test_filter_option!(num_ccs_ub, [Some(0), Some(1)]);
+    test_filter_option!(nodes_largest_cc_lb, [Some(0), Some(1)]);
+    test_filter_option!(nodes_largest_cc_ub, [Some(0), Some(1)]);
+    test_filter_option!(diameter_lb, [Some(0), Some(1)]);
+    test_filter_option!(diameter_ub, [Some(0), Some(1)]);
+    test_filter_option!(treewidth_lb, [Some(0), Some(1)]);
+    test_filter_option!(treewidth_ub, [Some(0), Some(1)]);
+    test_filter_option!(planar, [Some(false), Some(true)]);
+    test_filter_option!(bipartite, [Some(false), Some(true)]);
+    test_filter_option!(regular, [Some(false), Some(true)]);
 }
