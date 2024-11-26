@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <title>Stride through the world of runs at your own pace</title>
-    
+
     <link href="css/bootstrap.min.css" rel="stylesheet" />
     <link href="css/stride.css" rel="stylesheet" />
 </head>
@@ -30,29 +30,52 @@
         </nav>
 
         <main>
-            <form class="bg-body-tertiary p-2">
-                <div class="row p-2">
-                    <div class="col-2">
-                        <label>Display</label>
-                    </div>
-                    <div class="col-5">
-                        <select id="instances_of" class="form-select">
-                            <option value="all">All Instances</option>
-                        </select>
-                    </div>
-                    <div class="col-5">
-                        <input type="checkbox" id="include_hidden" /> <label for="include_hidden">Include Hidden</label>
-                    </div>
-                </div>
-            </form>
+            <div class="container m-0">
+                <form class="bg-body-tertiary p-0 m-0">
+                    <div class="row p-4">
+                        <div class="col-5">
+                            <label class="form-label" for="instances_of">Restrict to instance of</label>
+                            <select id="instances_of" class="form-select">
+                                <option value="all">No restrictions</option>
+                                </select>
+                                </div>
+                        <div class="col-2"></div>
 
-            <div id="runs" class="mt-5">
+                        <div class="col-5">
+                            <label class="form-label" for="plot_type">Plot type</label>
+                            <select id="plot_type" class="form-select">
+                                <option value="runtime">Runtime</option>
+                                <option value="quality">Quality</option>
+                            </select>
+                            </div>
+                            </div>
+                    <div id="plots" class="container bg-body-tertiary p-2 m-0">
+                        <div id="runtime-plot" class="plot">[no plot available yet]</div>
+                    </div>
+                    
+                    <p class="m-4 mb-0 mt-0">For each run compute a list of computation time/score and sort these in
+                        ascending order;
+                        plot them in this order --- i.e. the same x-coordinate may correspond to different instances for
+                        different runs.
+                        The longer a line stays near the bottom, the better the run.
+                        Use <em>Restrict to instance of</em> to get comparable results.
+                    </p>
+                </form>
+
+                <div class="container mt-5" style="text-align: right;">
+                    <input type="checkbox" id="include_hidden" />
+                    <label for="include_hidden">Show hidden runs</label>
+                </div>
+                </div>
+                
+                <div id="runs">
             </div>
         </main>
     </div>
 
     <script src="libs/popper.min.js"></script>
     <script src="libs/bootstrap.bundle.min.js"></script>
+    <script src="libs/plotly-2.35.2.min.js"></script>
 
     <script src="js/runs.js"></script>
 

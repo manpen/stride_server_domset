@@ -40,6 +40,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route("/api/solutions/download", get(solution_download_handler))
         .route("/api/solution_hashes/:solver_uuid", get(solution_hash_list_handler))
         .route("/api/solver_run/list", get(solver_run_list_handler))
+        .route("/api/solver_run/performance", post(solver_run_performance_handler))
         .route("/api/solver_run/annotate", get(solver_run_annotate_handler));
 
     let service_404 = handle_404.into_service();

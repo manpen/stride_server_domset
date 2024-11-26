@@ -15,6 +15,7 @@ document.querySelector("h1").innerText = `Solver ${SOLVER}`;
 const apiBase = '/api/';
 const apiSolverRunList = apiBase + `solver_run/list?solver=${SOLVER}`;
 const apiSolverRunAnnotate = apiBase + `solver_run/annotate?solver=${SOLVER}`;
+const apiSolverRunPerformance = apiBase + `solver_run/performance`;
 
 function getRunUuid(elem) {
     while (elem != document) {
@@ -25,19 +26,171 @@ function getRunUuid(elem) {
     }
 }
 
+let run_perfs = {}
+let plot = null;
+function fetchRunPerformance(runs) {
+    for (run_uuid of runs) {
+        run_perfs[run_uuid] = "requested";
+    }
+
+    let req = {
+        solver: SOLVER,
+        runs: runs
+    };
+
+    const instances_of = document.getElementById("instances_of").value;
+    if (instances_of != "all") {
+        req.instances_of = instances_of;
+    }
+
+    fetch(`${apiSolverRunPerformance}`, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(req)
+    })
+        .then(response => response.json())
+        .then(data => {
+            for (run of data.runs) {
+                if (run_perfs[run.run] == "requested") {
+                    run_perfs[run.run] = run;
+                }
+            }
+
+            updatePlot();
+        });
+}
+
+function updatePlot(e) {
+    const mode = document.getElementById("plot_type").value;
+
+    let runs_to_fetch = [];
+    for (run of document.querySelectorAll("input.show-in-plot")) {
+        if (run.checked) {
+            const uuid = getRunUuid(run);
+            if (run_perfs[uuid] === null || run_perfs[uuid] === undefined) {
+                runs_to_fetch.push(uuid);
+            }
+        }
+    }
+
+    if (runs_to_fetch.length > 0) {
+        fetchRunPerformance(runs_to_fetch);
+        return;
+    }
+
+    let active_runs = [];
+    for (run of document.querySelectorAll("input.show-in-plot")) {
+        if (run.checked) {
+            const uuid = getRunUuid(run);
+
+            if (run_perfs[uuid] != "requested" && run_perfs[uuid]) {
+                const y = run_perfs[uuid][mode == "runtime" ? "seconds_computed" : "score"];
+                let x = [];
+                for (let i = 0; i < y.length; i++) {
+                    x.push(i / (y.length - 1));
+                }
+
+                active_runs.push(
+                    {
+                        x: x, y: y,
+                        mode: 'lines',
+                        type: 'scatter',
+                        name: document.querySelector(`#run-${uuid} h4`).innerText,
+                        uuid: uuid,
+                    }
+                );
+            }
+        }
+    }
+
+
+
+    let layout = {
+        xaxis: {
+            title: 'Instance',
+            showticklabels: false,
+            autorange: true
+        }
+    };
+
+    if (mode == "runtime") {
+        layout["yaxis"] = {
+            title: 'Runtime (s)',
+            type: 'log',
+            autorange: true
+        };
+    } else {
+        layout["yaxis"] = {
+            title: 'score / best_score',
+            type: 'log',
+            autorange: true
+        };
+    }
+
+    let elem = document.getElementById('runtime-plot');
+    elem.innerHTML = "";
+    Plotly.newPlot(elem, active_runs, layout).then((p) => plot = p);
+}
+document.getElementById("plot_type").addEventListener("change", updatePlot);
+
+
 
 function populateRuns(data) {
     const filterOptions = data.options;
-    document.querySelector("#instances_of").innerHTML = "<option value='all'>all instances</option>";
+    document.querySelector("#instances_of").innerHTML = "<option value='all'>No restrictions (consider all instances of each run)</option>";
 
     let tbody = document.getElementById("runs");
+
+    let checked_runs = null;
+    for (run of document.querySelectorAll("input.show-in-plot")) {
+        if (checked_runs === null) {
+            checked_runs = [];
+        }
+
+        if (run.checked) {
+            checked_runs.push(getRunUuid(run));
+        }
+    }
+
+    if (checked_runs === null) {
+        checked_runs = [];
+        for (run of data.runs) {
+            checked_runs.push(run.run_uuid);
+            if (checked_runs.length >= 4) {
+                break;
+            }
+        }
+
+        if (data.runs.length > checked_runs.length) {
+            checked_runs.push(data.runs[data.runs.length - 1].run_uuid);
+        }
+    }
+
     tbody.innerHTML = "";
 
+    let row_id = -1;
     for (run of data.runs) {
+        row_id += 1;
         let row = document.createElement("div");
         row.classList.add("row");
         row.classList.add("run");
         row.classList.add("m-3");
+        row.addEventListener("mouseenter", (e) => {
+            if (!plot) { return; }
+            let uuid = getRunUuid(e.target);
+            var opacity = plot.data.map((c) => c.uuid == uuid ? 1 : 0.2);
+            Plotly.restyle(plot, 'opacity', opacity)
+        });
+
+        row.addEventListener("mouseleave", (e) => {
+            if (!plot) {
+                return;
+            }
+            Plotly.restyle(plot, 'opacity', 1);
+        });
 
         if (run.hide) {
             row.classList.add("hidden");
@@ -84,8 +237,23 @@ function populateRuns(data) {
             window.location.href = `/index.html?solver=${SOLVER}&run=${run}`;
         });
 
+
         let tools = add_content("div", "tools", "");
         {
+            let check = document.createElement("input");
+            check.id = `check-${run.run_uuid}`;
+            check.type = "checkbox";
+            check.classList.add("show-in-plot");
+            check.checked = checked_runs.includes(run.run_uuid);
+            check.addEventListener("change", (e) => { updatePlot(e); });
+            tools.appendChild(check);
+
+            let label = document.createElement("label");
+            label.htmlFor = check.id;
+            label.innerText = "in plot";
+            label.classList.add("pr-3");
+            tools.appendChild(label);
+
             function add_tool(cls, text, handler) {
                 let a = document.createElement("a");
                 a.classList.add(cls);
@@ -244,11 +412,12 @@ function populateRuns(data) {
         tbody.appendChild(row);
     }
 
-
+    updatePlot();
 }
 
 function fetchRuns() {
     opts = "";
+    run_perfs = {};
 
     if (document.getElementById("include_hidden").checked) {
         opts += "&include_hidden=true";

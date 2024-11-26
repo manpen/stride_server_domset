@@ -584,3 +584,6 @@ function populateRunHeader(data) {
 if (RUN_MODE) {
     fetch(apiSolverRunList).then(response => response.json()).then(populateRunHeader);
 }
+
+const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
