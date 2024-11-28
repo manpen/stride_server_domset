@@ -50,7 +50,6 @@ pub use solver_run_annotate::solver_run_annotate_handler;
 pub mod solver_run_performance;
 pub use solver_run_performance::solver_run_performance_handler;
 
-
 pub mod solution_download;
 pub use solution_download::solution_download_handler;
 

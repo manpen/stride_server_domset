@@ -178,7 +178,7 @@ pub enum SortBy {
     ErrorCode, // avaliable only when solver_filter is provided
 }
 
-const SORT_BY_ONLY_WITH_RUN : [SortBy; 4] = [
+const SORT_BY_ONLY_WITH_RUN: [SortBy; 4] = [
     SortBy::Score,
     SortBy::ScoreDiff,
     SortBy::SecondsComputed,
@@ -330,7 +330,6 @@ impl FilterOptions {
             return Err(anyhow::anyhow!("solver and run must be both provided or both not").into());
         }
 
-
         if self.run.is_none() {
             // assert that no fields are set that require run-mode
             if self.score_lb.is_some()
@@ -347,7 +346,7 @@ impl FilterOptions {
                 .into());
             }
 
-            if SORT_BY_ONLY_WITH_RUN.iter().contains(& self.sort_by ) {
+            if SORT_BY_ONLY_WITH_RUN.iter().contains(&self.sort_by) {
                 return Err(anyhow::anyhow!(
                     "sort-by option requires solver and run to be provided"
                 )
@@ -717,7 +716,7 @@ pub async fn instance_list_download_handler(
             .join("\n")
     };
 
-    let document = format!("% {}\n{list_as_string}", serde_json::to_string(&opts)?);
+    let document = format!("c {}\n{list_as_string}", serde_json::to_string(&opts)?);
 
     let content_disposition = HeaderValue::from_str("attachment; filename=\"list.txt\"")?;
 
@@ -852,11 +851,10 @@ mod tests {
 
     test_filter_option!(score_diff_lb, [Some(0), Some(1)], RUN_MODE);
     test_filter_option!(score_diff_ub, [Some(0), Some(1)], RUN_MODE);
-    
+
     test_filter_option!(seconds_computed_lb, [Some(0.1), Some(1.1)], RUN_MODE);
     test_filter_option!(seconds_computed_ub, [Some(1.1), Some(2.1)], RUN_MODE);
-    
-    
+
     test_filter_option!(
         result_status,
         [
