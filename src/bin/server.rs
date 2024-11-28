@@ -20,7 +20,8 @@ async fn connect_to_database() -> MySqlPool {
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let pool = MySqlPoolOptions::new()
-        .max_connections(100)
+        .min_connections(10)
+        .max_connections(50)
         .connect(&database_url)
         .await;
 
