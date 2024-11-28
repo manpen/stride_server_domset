@@ -26,7 +26,7 @@ if (RUN_MODE) {
 
 const apiBase = '/api/';
 const apiTags = apiBase + 'tags';
-const apiInstances = apiBase + 'instances';
+const apiInstances = apiBase + 'instances/list';
 const apiSolverRunList = apiBase + `solver_run/list?solver=${SOLVER}&run=${RUN}`;
 
 let tags = null;
@@ -480,7 +480,7 @@ document.querySelector("#download_list").onclick = function () {
     const opts_list = Object.entries(opts).map(([key, value]) => `${key}=${encodeURIComponent(value)}`);
     const params = opts_list.join("&");
 
-    window.location.href = `${apiBase}instance_list?${params}`;
+    window.location.href = `${apiBase}instances/list_download?${params}`;
 };
 
 document.querySelectorAll("#instances thead .sortable").forEach((th) => {
