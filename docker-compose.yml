@@ -9,17 +9,7 @@ services:
       - '6500:3306'
     volumes:
       - ./data/mysql:/var/lib/mysql
-    command: --skip-name-resolve
-
-  mysql-testing:
-    image: mysql:latest
-    container_name: mysqltesting
-    env_file:
-      - ./testing.env
-    ports:
-      - '6600:3306'
-    command: --skip-name-resolve
-    
+    command: --skip-name-resolve --max_allowed_packet=256M 
 
   webserver:
     container_name: webserver
@@ -29,5 +19,17 @@ services:
     volumes:
       - .:/srv/:ro
     ports:
-      - '80:8000'
-      - '443:8080'
+      - '141.2.11.79:80:8000'
+      - '141.2.11.79:443:8080'
+
+  webserver_admin:
+    container_name: webserver_admin
+    build: docker/webserver
+    env_file:
+      - ./.env
+    environment:
+      - STRIDE_BUILD=-F admin-api
+    volumes:
+      - .:/srv/:ro
+
+
