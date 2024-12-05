@@ -587,3 +587,12 @@ if (RUN_MODE) {
 
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
 const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+
+fetch(apiBase + "status")
+    .then(response => response.json())
+    .then(data => {
+        console.log(data);
+        document.querySelector("#site-stats").innerText =
+            `${data.num_instances} instances, ${data.num_jobs} solver results, and ${data.num_unique_solutions} unique solutions`;
+    });
+

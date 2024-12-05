@@ -437,3 +437,12 @@ fetchRuns();
 
 document.getElementById("include_hidden").addEventListener("change", fetchRuns);
 document.getElementById("instances_of").addEventListener("change", fetchRuns);
+
+fetch(apiBase + "status")
+    .then(response => response.json())
+    .then(data => {
+        console.log(data);
+        document.querySelector("#site-stats").innerText =
+            `${data.num_instances} instances, ${data.num_jobs} solver results, and ${data.num_unique_solutions} unique solutions`;
+    });
+
