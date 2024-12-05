@@ -71,7 +71,7 @@ impl SolverResult {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct SolutionUploadRequest {
     pub instance_id: u32,
 
@@ -80,6 +80,9 @@ pub struct SolutionUploadRequest {
 
     pub seconds_computed: f64,
     pub result: SolverResult,
+
+    #[serde(default)]
+    pub dry_run: bool,
 }
 
 async fn read_instance_data(db: &DbPool, instance_id: u32) -> HandlerResult<(NumNodes, Vec<Edge>)> {
@@ -248,7 +251,11 @@ async fn handle_valid_new_solution(
 
     update_instance_score(&mut tx, request.instance_id, solution_score).await?;
 
-    tx.commit().await?;
+    if request.dry_run {
+        tx.rollback().await?;
+    } else {
+        tx.commit().await?;
+    }
 
     let note_response = serde_json::json!({"status": "success", "solution_hash": solution_hash});
     Ok(Json(note_response))
@@ -273,7 +280,11 @@ async fn handle_valid_cached_solution(
     insert_solver_run_entry(&mut tx, &request).await?;
     insert_valid_solution_entry(&mut tx, &request, &solution_hash, solution_score).await?;
 
-    tx.commit().await?;
+    if request.dry_run {
+        tx.rollback().await?;
+    } else {
+        tx.commit().await?;
+    }
 
     let note_response = serde_json::json!({"status": "success", "solution_hash": solution_hash});
     Ok(Json(note_response))
@@ -291,7 +302,11 @@ async fn handle_invalid_solution(
     insert_solver_run_entry(&mut tx, &request).await?;
     insert_invalid_solution_entry(&mut tx, &request, result_type).await?;
 
-    tx.commit().await?;
+    if request.dry_run {
+        tx.rollback().await?;
+    } else {
+        tx.commit().await?;
+    }
 
     let note_response = serde_json::json!({"status": "success"});
     Ok(Json(note_response))
