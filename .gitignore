@@ -6,11 +6,15 @@
 Cargo.lock
 *.db
 *.db.gz
+*.db-shm
+*.db-wal
 .pyenv
 pyenv
 *.ipynb_checkpoints
 *.ipynb
 *.http
 *.py
+*backup.sql
 assets/**/*.*.gz
 assets/**/*.*.zst
+*~
