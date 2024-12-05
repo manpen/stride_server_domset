@@ -1,9 +1,9 @@
 #!/bin/bash
+set -x
 set -e
 
 PYENV="pyenv"
-SQLITE_DB_FILE="runner.db"
-SQLITE_DATA_FILE="smalldata.db"
+SQLITE_DB_FILE="db_meta.db"
 
 . ../.env
 
@@ -24,26 +24,8 @@ mysql2sqlite \
     --mysql-password $MYSQL_PASSWORD \
     -h $MYSQL_HOST \
     -P $MYSQL_PORT \
-    -e InstanceData _sqlx_migrations 
+    -e InstanceData _sqlx_migrations Solution SolutionData 
 
-echo "UPDATE solutiondata SET data = NULL;" \
-    | sqlite3 $SQLITE_DB_FILE
+gzip -k $SQLITE_DB_FILE
+mv -f $SQL_DB_FILE $SQLITE_DB_FILE.gz ../assets/
 
-
-mysql2sqlite \
-    -f $SQLITE_DATA_FILE \
-    -d $MYSQL_DATABASE \
-    -u $MYSQL_USER \
-    --mysql-password $MYSQL_PASSWORD \
-    -h $MYSQL_HOST \
-    -P $MYSQL_PORT \
-    -t InstanceData
-
-echo "DELETE FROM instancedata WHERE length(data) > 1000;" \
-    | sqlite3 $SQLITE_DATA_FILE
-
-
-for f in $SQLITE_DATA_FILE $SQLITE_DB_FILE; do
-    echo "VACUUM;" | sqlite3 $f    
-    mv $f ../assets/
-done
