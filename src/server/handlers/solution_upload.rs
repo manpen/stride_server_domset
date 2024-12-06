@@ -78,7 +78,8 @@ pub struct SolutionUploadRequest {
     pub run_uuid: uuid::Uuid,
     pub solver_uuid: Option<uuid::Uuid>,
 
-    pub seconds_computed: f64,
+    #[serde(default)]
+    pub seconds_computed: Option<f64>,
     pub result: SolverResult,
 
     #[serde(default)]

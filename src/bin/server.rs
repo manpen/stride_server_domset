@@ -15,7 +15,7 @@ use axum_server::tls_rustls::RustlsConfig;
 
 const BIND_ADDRESS: [u8; 4] = [0, 0, 0, 0];
 
-async fn connect_to_database(opts : &Opts) -> MySqlPool {
+async fn connect_to_database(opts: &Opts) -> MySqlPool {
     let pool = MySqlPoolOptions::new()
         .min_connections(opts.mysql_min_connections)
         .max_connections(opts.mysql_max_connections)
@@ -31,7 +31,7 @@ async fn connect_to_database(opts : &Opts) -> MySqlPool {
     pool.unwrap()
 }
 
-async fn http_server(app_state: Arc<AppState>, opts : Arc<Opts>) -> Result<(), anyhow::Error> {
+async fn http_server(app_state: Arc<AppState>, opts: Arc<Opts>) -> Result<(), anyhow::Error> {
     let app = create_router(app_state).layer(CompressionLayer::new());
 
     let addr = SocketAddr::from((BIND_ADDRESS, opts.http_port));
@@ -40,7 +40,7 @@ async fn http_server(app_state: Arc<AppState>, opts : Arc<Opts>) -> Result<(), a
     Ok(axum::serve(listener, app).await?)
 }
 
-async fn https_server(app_state: Arc<AppState>, opts : Arc<Opts>) -> Result<(), anyhow::Error> {
+async fn https_server(app_state: Arc<AppState>, opts: Arc<Opts>) -> Result<(), anyhow::Error> {
     let app = create_router(app_state);
 
     // configure certificate and private key used by https
@@ -60,11 +60,11 @@ async fn https_server(app_state: Arc<AppState>, opts : Arc<Opts>) -> Result<(), 
 
 #[derive(StructOpt)]
 struct Opts {
-    #[structopt(short="-h", long, default_value = "8000")]
+    #[structopt(short = "-h", long, default_value = "8000")]
     http_port: u16,
-    #[structopt(short="-s", long, default_value = "8080")]
+    #[structopt(short = "-s", long, default_value = "8080")]
     https_port: u16,
-    
+
     #[structopt(short, long)]
     mysql_url: Option<String>,
 
@@ -82,10 +82,16 @@ async fn main() {
     let opts = Arc::new({
         let mut opts = Opts::from_args();
         if opts.mysql_url.is_none() {
-            opts.mysql_url = Some(std::env::var("DATABASE_URL").expect("DATABASE_URL must be set or --mysql-url must be provided"));
+            opts.mysql_url = Some(
+                std::env::var("DATABASE_URL")
+                    .expect("DATABASE_URL must be set or --mysql-url must be provided"),
+            );
         }
 
-        assert!(opts.mysql_min_connections <= opts.mysql_max_connections, "min_connections must be less than or equal to max_connections");
+        assert!(
+            opts.mysql_min_connections <= opts.mysql_max_connections,
+            "min_connections must be less than or equal to max_connections"
+        );
         opts
     });
 
