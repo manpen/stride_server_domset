@@ -41,6 +41,12 @@ let filterOptions = {
 function createTagElement(data, with_counts = false) {
     const tag = document.createElement('span');
     tag.className = `tag tagstyle${data.style}`;
+    tag.tid = data.tid;
+
+    tag.addEventListener("click", (e) => {
+        document.querySelector("#tag").value = e.target.tid;
+        fetchData();
+    });
 
     if (filterOptions.tag !== null) {
         tag.classList.add(
@@ -77,10 +83,6 @@ function buildFilter() {
         filter["solver"] = SOLVER;
     }
 
-    if (document.querySelector("#tag").value != "none") {
-        filter["tag"] = document.querySelector("#tag").value;
-    }
-
     document.querySelectorAll(".form-control").forEach((e) => {
         function update(key, value) {
             if (value == "none") { return; }
@@ -99,6 +101,10 @@ function buildFilter() {
             update(e.id.replace("bool_constr_", ""), e.value);
         }
     });
+
+    if (document.querySelector("#tag").value != "none") {
+        filter["tag"] = parseInt(document.querySelector("#tag").value);
+    }
 
     return filter;
 }
@@ -206,7 +212,7 @@ function populateTable(instances) {
             let elem = create_td(value, fmt, order_by === null ? key : order_by);
             const header_elem = tableHeader.querySelectorAll("th")[col_idx];
             if (header_elem.classList.contains("group-begin")) {
-                elem.classList.add("group-begin");                
+                elem.classList.add("group-begin");
             }
         }
 
