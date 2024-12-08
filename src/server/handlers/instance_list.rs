@@ -31,6 +31,9 @@ pub struct FilterOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tag: Option<u32>,
 
+    #[serde(default)]
+    pub iid: Option<u32>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nodes_lb: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -409,6 +412,11 @@ where
     append_range_filter!(opts, nodes_largest_cc);
     append_range_filter!(opts, diameter);
     append_range_filter!(opts, treewidth);
+
+    if let Some(x) = opts.iid {
+        builder.push(" AND i.iid = ");
+        builder.push_bind(x);
+    }
 
     if let Some(x) = opts.planar {
         builder.push(" AND i.planar = ");
