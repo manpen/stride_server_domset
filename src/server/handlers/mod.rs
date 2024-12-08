@@ -53,5 +53,8 @@ pub use solver_run_performance::solver_run_performance_handler;
 pub mod solution_download;
 pub use solution_download::solution_download_handler;
 
+pub mod instance_solutions;
+pub use instance_solutions::instance_solutions_handler;
+
 // imports used by pretty much every handler
 mod common;
