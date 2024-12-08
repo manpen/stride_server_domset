@@ -218,10 +218,14 @@ function populateTable(instances) {
 
         add_td("iid", "num", null, "id");
 
+        const details_url = RUN_MODE ? `&solver=${SOLVER}&run=${RUN}` : '';
+
         {
             let name_elem = document.createElement("td");
+
             name_elem.innerHTML = `<span class="name">${ins.name}</span>
                         <a href="${apiBase}instances/download/${ins.iid}" alt="Download Instance ${ins.iid}">⬇️</a>
+                        <a href="instance.html?iid=${ins.iid}${details_url}">🔍</a>
                         <span class="tags"></span><p class="desc">${ins.description}</p>`;
 
             if (filterOptions.order_by == "name") {
