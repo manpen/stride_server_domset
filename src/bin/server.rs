@@ -1,5 +1,12 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
+use axum::extract::Host;
+use axum::handler::HandlerWithoutStateExt;
+use axum::{
+    http::{StatusCode, Uri},
+    response::Redirect,
+};
+
 use dotenv::dotenv;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 
@@ -29,6 +36,41 @@ async fn connect_to_database(opts: &Opts) -> MySqlPool {
 
     info!("Connection to the database is successful!");
     pool.unwrap()
+}
+
+#[allow(dead_code)]
+async fn redirect_http_to_https(http_port: u16, https_port: u16) {
+    fn make_https(host: String, uri: Uri, http_port: u16, https_port: u16) -> anyhow::Result<Uri> {
+        let mut parts = uri.into_parts();
+
+        parts.scheme = Some(axum::http::uri::Scheme::HTTPS);
+
+        if parts.path_and_query.is_none() {
+            parts.path_and_query = Some("/".parse().unwrap());
+        }
+
+        let https_host = host.replace(&http_port.to_string(), &https_port.to_string());
+        parts.authority = Some(https_host.parse()?);
+
+        Ok(Uri::from_parts(parts)?)
+    }
+
+    let redirect = move |Host(host): Host, uri: Uri| async move {
+        match make_https(host, uri, http_port, https_port) {
+            Ok(uri) => Ok(Redirect::permanent(&uri.to_string())),
+            Err(error) => {
+                tracing::warn!(%error, "failed to convert URI to HTTPS");
+                Err(StatusCode::BAD_REQUEST)
+            }
+        }
+    };
+
+    let addr = SocketAddr::from((BIND_ADDRESS, http_port));
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    axum::serve(listener, redirect.into_make_service())
+        .await
+        .unwrap();
 }
 
 async fn http_server(app_state: Arc<AppState>, opts: Arc<Opts>) -> Result<(), anyhow::Error> {
@@ -65,6 +107,9 @@ struct Opts {
     #[structopt(short = "-s", long, default_value = "8080")]
     https_port: u16,
 
+    #[structopt(short = "-r", long)]
+    no_redirect_to_https: bool,
+
     #[structopt(short, long)]
     mysql_url: Option<String>,
 
@@ -76,7 +121,7 @@ struct Opts {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     dotenv().ok();
 
     let opts = Arc::new({
@@ -105,6 +150,13 @@ async fn main() {
 
     let app_state = Arc::new(AppState::new(connect_to_database(&opts).await));
 
-    tokio::spawn(https_server(app_state.clone(), opts.clone()));
-    http_server(app_state, opts.clone()).await.unwrap()
+    let https_handle = tokio::spawn(https_server(app_state.clone(), opts.clone()));
+    if opts.no_redirect_to_https {
+        info!("Not redirecting HTTP to HTTPS -> Start another server instance on HTTP");
+        http_server(app_state, opts.clone()).await?;
+    } else {
+        info!("Redirecting HTTP to HTTPS");
+        redirect_http_to_https(opts.http_port, opts.https_port).await;
+    }
+    https_handle.await?
 }
