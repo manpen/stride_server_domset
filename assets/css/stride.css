@@ -323,3 +323,21 @@ th.sortable {
 body.solver-mode .solver-mode-only {
     display: inherit;
 }
+
+#graph-size-warning {
+    display: none;
+}
+
+#graph-size-warning .row {
+    background: var(--bs-warning-bg-subtle);
+    border-radius: var(--bs-border-radius);
+}
+
+#graph-size-warning .symbol {
+    font-size: 400%;
+    text-align: center;
+}
+
+#graph-size-warning p {
+    color: var(--bs-warning-text-emphasis);
+}

@@ -59,7 +59,7 @@
             <div class="row" data-bs-toggle="collapse" data-bs-target="#graph-vis" aria-expanded="true"
                 aria-controls="graph-vis">
                 <div class="col-8">
-                    <h3>Graph</h3>
+                    <h3>Graph visualization</h3>
                 </div>
                 <div class="col-4" style="text-align: right;">
                     <button class="btn btn-secondary btn-close" data-bs-toggle="collapse" data-bs-target="#graph-vis"
@@ -67,7 +67,30 @@
                 </div>
             </div>
 
-            <div id="graph-vis" class="collapse show">
+            <div id="graph-size-warning" class="p-3">
+                <div class="row">
+                    <div class="col-1 symbol">⚠️</div>
+                    <div class="col-11">
+                        <p class="mt-2 mb-2">
+                            This graph is rather larger. It may take a while to render, be somewhat unresponsive, and probably not
+                            that
+                            useful.
+                        </p>
+                        <button class="btn btn-danger">I'm feeling lucky. Stress-test my browser!</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="graph-loading">
+                <div class="spinner-border text-light" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span class="m-3 mt-1 text">
+                    Loading ...
+                </span>
+            </div>
+            
+            <div id="graph-vis" class="collapse">
                 <div class="container">
                     <div id="graph-container"></div>
                 </div>
@@ -82,7 +105,7 @@
                     <div class="col-1"></div>
                     <div class="col-4">
                         <select id="solution-select" class="form-select">
-                            <option value="none">Solution to visualize</option>
+                            <option value="none">Navigate here from the solver-page to show a solution</option>
                         </select>
                     </div>
                 </div>

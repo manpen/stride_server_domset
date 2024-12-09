@@ -260,6 +260,18 @@ function ForceGraph({
             .attr("transform", d => `translate(${d.x}, ${d.y})`);
 
         if (covered_data !== null) {
+
+
+        }
+    }
+
+    function updateNodeEdgeTypes() {
+        if (covered_data === null) {
+            for (cls in ["domset", "uniquecovered", "multicovered", "unused"]) {
+                node.classed(cls, false);
+                link.classed(cls, false);
+            }
+        } else {
             node.classed("domset", d => covered_data[d.id].in_ds);
             node.classed("multicovered", d => !covered_data[d.id].in_ds && covered_data[d.id].covered_by.length > 1);
             node.classed("uniquecovered", d => !covered_data[d.id].in_ds && covered_data[d.id].covered_by.length == 1);
@@ -276,9 +288,10 @@ function ForceGraph({
                     ((covered_data[d.source.id].in_ds && covered_data[d.target.id].covered_by.length == 1)
                         || (covered_data[d.target.id].in_ds && covered_data[d.source.id].covered_by.length == 1)
                     ));
-
         }
+
     }
+    updateNodeEdgeTypes();
 
     function drag(simulation) {
         function dragstarted(event) {
@@ -311,6 +324,7 @@ function ForceGraph({
     obj.forceLink = forceLink;
     obj.updateStrength = update_strength;
     obj.graphGroup = graph_group;
+    obj.updateNodeEdgeTypes = updateNodeEdgeTypes;
 
     return obj;
 }
@@ -357,8 +371,7 @@ function update_graph_data() {
 function update_domset() {
     if (graph_data === null) {
         covered_data = null;
-        return;
-    }
+    } else {
 
     covered_data = {};
 
@@ -383,27 +396,37 @@ function update_domset() {
         }
     });
 
-    graph_d3.graphGroup.selectAll(".node title").text(function (d) {
-        let text = `Node ${d.id}, Degree: ${graph_adj[d.id].size - 1}`;
-        if (covered_data[d.id].in_ds) {
-            text += `\nIn DomSet`;
-        } else {
-            text += `\nCoverage ${covered_data[d.id].covered_by.length} by node(s) [${covered_data[d.id].covered_by.join(", ")}]`;
-        }
-        return text;
-    });
+        if (graph_d3 !== null) {
+            graph_d3.graphGroup.selectAll(".node title").text(function (d) {
+                let text = `Node ${d.id}, Degree: ${graph_adj[d.id].size - 1}`;
+                if (covered_data[d.id].in_ds) {
+                    text += `\nIn DomSet`;
+                } else {
+                    text += `\nCoverage ${covered_data[d.id].covered_by.length} by node(s) [${covered_data[d.id].covered_by.join(", ")}]`;
+                }
+                return text;
+            });
 
-    graph_d3.updateStrength();
+            graph_d3.updateStrength();
+        }
+    }
+
+    if (graph_d3 !== null) {
+        graph_d3.updateNodeEdgeTypes();
+    }
+
 }
 
-
-fetch(`${API_BASE}instances/download/${IID}`)
-    .then(response => response.text())
-    .then((text) => {
-        console.log("instance");
-        graph_data = parseDimacsToD3(text);
-        update_graph_data();
-    });
+function fetch_graph() {
+    document.getElementById("graph-loading").style.display = "block";
+    fetch(`${API_BASE}instances/download/${IID}`)
+        .then(response => response.text())
+        .then((text) => {
+            graph_data = parseDimacsToD3(text);
+            update_graph_data();
+            document.getElementById("graph-loading").style.display = "none";
+        });
+}
 
 
 var solution_caches = {};
@@ -471,8 +494,18 @@ fetch(`${API_BASE}instances/list`, {
         document.getElementById("instance-name").innerText = "Instance: " + inst.name;
         document.getElementById("instance-description").innerText = inst.description;
 
-        //document.querySelector("#run-name").textContent = data.name;
-        //document.querySelector("#run-description").textContent = data.description;
+        if (inst.nodes < 100) {
+            document.getElementById("graph-vis").classList.add("show");
+            fetch_graph();
+        } else {
+            document.getElementById("graph-loading").style.display = "none";
+            document.getElementById("graph-size-warning").style.display = "block";
+            document.querySelector("#graph-size-warning button").addEventListener("click", (e) => {
+                document.getElementById("graph-size-warning").style.display = "none";
+                document.getElementById("graph-vis").classList.add("show");
+                fetch_graph();
+            });
+        }
     });
 
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
