@@ -126,14 +126,17 @@
                                     <select class="form-control" id="constr_result_status">
                                         <optgroup label="Aggregates">
                                             <option value="none">All Instances of this run</option>
-                                            <option value="valid">only with valid solution (optimal + suboptimal)</option>
+                                            <option value="valid">only with valid solution (optimal + suboptimal)
+                                            </option>
                                             <option value="invalid">only without valid solution</option>
                                         </optgroup>
                                         <optgroup label="Specific Type">
                                             <option value="optimal">only Optimal Solutions</option>
                                             <option value="suboptimal">only Suboptimal Solutions</option>
-                                            <option value="infeasible">only Infeasible Solutions (correct syntax + no domset = disqualified in PACE)</option>
-                                            <option value="incomplete">only Incomplete Outputs (typically solver quit without solution)</option>
+                                            <option value="infeasible">only Infeasible Solutions (correct syntax + no
+                                                domset = disqualified in PACE)</option>
+                                            <option value="incomplete">only Incomplete Outputs (typically solver quit
+                                                without solution)</option>
                                             <option value="timeout">only Timeouts</option>
                                             <option value="error">only Errors</option>
                                         </optgroup>
@@ -340,11 +343,14 @@
 
                     <div class="row p-2">
                         <div class="col-2">
-                            <label>Tags</label>
                         </div>
-                        <div class="col-6">
+                        <div class="col-4">
+                            <input type="text" class="form-control search" id="search" placeholder="Search ...">
+                        </div>
+                        
+                        <div class="col-2">
                             <select class="form-control" id="tag">
-                                <option value="none">All</option>
+                                <option value="none">All Tags</option>
                             </select>
                         </div>
                         <div class="col-1">
@@ -379,7 +385,8 @@
                             <span data-bs-toggle="tooltip" data-bs-title="Number of Connected Components">Num CCs</span>
                         </th>
                         <th scope="col" id="header_nodes_largest_cc" class="sortable num rot">
-                            <span data-bs-toggle="tooltip" data-bs-title="Nodes in a largest Connected Component">Max CC</span>
+                            <span data-bs-toggle="tooltip" data-bs-title="Nodes in a largest Connected Component">Max
+                                CC</span>
                         </th>
                         <th scope="col" id="header_treewidth" class="sortable group-begin num rot"><span>Tree
                                 width</span></th>

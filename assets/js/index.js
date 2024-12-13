@@ -111,6 +111,10 @@ function buildFilter() {
         filter["tag"] = parseInt(document.querySelector("#tag").value);
     }
 
+    if (document.querySelector("#search").value) {
+        filter["search"] = document.querySelector("#search").value;
+    }
+
     return filter;
 }
 
@@ -531,6 +535,24 @@ document.querySelectorAll(".form-control").forEach((e) => {
 document.querySelector("#tag").addEventListener("change", () => {
     fetchData();
 });
+
+
+{
+    let search_elem = document.querySelector("#search");
+    var timeout = null;
+
+    search_elem.addEventListener("change", () => {
+        if (timeout !== null) { clearTimeout(timeout); }
+        fetchData();
+    });
+
+    search_elem.addEventListener("keyup", () => {
+        if (timeout !== null) { clearTimeout(timeout); }
+        timeout = setTimeout(function () { fetchData(); }, 300);
+
+    });
+}
+
 
 document.querySelector("#reset_filters").addEventListener("click", () => {
     document.querySelectorAll(".form-control").forEach((e) => {

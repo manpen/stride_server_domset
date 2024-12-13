@@ -115,6 +115,9 @@ pub struct FilterOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seconds_computed_ub: Option<f64>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search : Option<String>,
+
     #[serde(default)]
     pub result_status: ResultStatusFilter,
 }
@@ -476,6 +479,20 @@ where
                 builder.push_bind(SolverResultType::SyntaxError as u32);
             }
         }
+    }
+
+    if let Some(search) = &opts.search {
+        builder.push (" AND (MATCH (i.`name`, i.`description`, i.`submitted_by`) AGAINST (");
+        builder.push_bind(search);
+        builder.push(")");
+
+        for word in search.split_whitespace() {
+            if let Ok(number) = word.parse::<u32>() {
+                builder.push(" OR i.iid = ");
+                builder.push_bind(number);
+            }
+        }
+        builder.push(") ");
     }
 
     Ok(builder)
