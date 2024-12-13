@@ -115,6 +115,7 @@ function buildFilter() {
 }
 
 function fetchData(include_tags = false, include_max_values = false) {
+    document.querySelector("#loading").style.display = "block";
     let filters = buildFilter();
 
     // TODO: fix document.querySelector("#reset_filters").disabled = (filters.length == 2);
@@ -165,8 +166,12 @@ function fetchData(include_tags = false, include_max_values = false) {
             download_btn.disabled = (data.total_matches == 0);
 
             setupPagination(data.options.page, Math.ceil(data.total_matches / data.options.limit));
+            document.querySelector("#loading").style.display = "none";
         })
-        .catch(error => console.error('Error fetching data:', error));
+        .catch(error => {
+            alert('Error fetching data');
+            console.error('Error fetching data:', error)
+        });
 }
 
 function populateTable(instances) {
