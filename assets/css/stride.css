@@ -47,6 +47,10 @@ td .desc {
     border-left-width: 2*var(--bs-border-width);
 }
 
+.form-control.active {
+    color: var(--bs-info);
+    font-weight: bold;
+}
 #pagination {
     margin-top: 1em;
     text-align: center;

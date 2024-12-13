@@ -99,11 +99,21 @@ function buildFilter() {
             filter[key] = (value == "true");
         }
 
+        function highlight(e) {
+            if (e.value == "none" && e.value != "") {
+                e.classList.remove("active");
+            } else {
+                e.classList.add("active");
+            }
+        }
+
         if (e.id.startsWith("constr_")) {
             update(e.id.replace("constr_", ""), e.value)
+            highlight(e);
 
         } else if (e.id.startsWith("bool_constr_")) {
             updateBool(e.id.replace("bool_constr_", ""), e.value);
+            highlight(e);
         }
     });
 
@@ -111,8 +121,12 @@ function buildFilter() {
         filter["tag"] = parseInt(document.querySelector("#tag").value);
     }
 
-    if (document.querySelector("#search").value) {
-        filter["search"] = document.querySelector("#search").value;
+    let search = document.querySelector("#search");
+    if (search.value) {
+        search.classList.add("active");
+        filter["search"] = search.value;
+    } else {
+        search.classList.remove("active");
     }
 
     return filter;
