@@ -217,18 +217,18 @@ function populateTable(instances) {
 
         function add_td(key, fmt = "num", if_unknown = "?", order_by = null) {
             let value = ins[key];
+            const org_value = value;
 
             if (value === null || value === undefined) {
                 value = if_unknown;
             } else {
                 if (fmt == "num") {
                     if (key != "iid" && value > 1e4) {
-                        if (value < 1000) { }
+                        if (value < 10000) { }
                         else if (value < 1e6) {
-                            value = Math.round(value / 1000) + "K";
+                            value = (value / 1000).toFixed(1) + "K";
                         } else {
                             value = (value / 1e6).toFixed(2) + "M";
-
                         }
                     }
                 } else {
@@ -242,6 +242,11 @@ function populateTable(instances) {
             if (header_elem.classList.contains("group-begin")) {
                 elem.classList.add("group-begin");
             }
+
+            if (org_value !== null && org_value !== value && fmt == "num") {
+                elem.setAttribute("data-bs-toggle", "tooltip");
+                elem.setAttribute("data-bs-title", org_value);
+            }
         }
 
         add_td("iid", "num", null, "id");
@@ -251,9 +256,11 @@ function populateTable(instances) {
         {
             let name_elem = document.createElement("td");
 
+            const inspect_title = RUN_MODE ? "Inspect instance and solutions" : "Inspect instance";
+
             name_elem.innerHTML = `<span class="name">${ins.name}</span>
-                        <a href="${apiBase}instances/download/${ins.iid}" alt="Download Instance ${ins.iid}">⬇️</a>
-                        <a href="instance.html?iid=${ins.iid}${details_url}">🔍</a>
+                        <a href="${apiBase}instances/download/${ins.iid}" alt="Download Instance ${ins.iid}" data-bs-toggle="tooltip" data-bs-title="Download instance in DIMACS format">⬇️</a>
+                        <a href="instance.html?iid=${ins.iid}${details_url}" data-bs-toggle="tooltip" data-bs-title="${inspect_title}">🔍</a>
                         <span class="tags"></span><p class="desc">${ins.description}</p>`;
 
             if (filterOptions.order_by == "name") {
@@ -337,6 +344,8 @@ function populateTable(instances) {
     tableHead.querySelectorAll(".asc").forEach(th => th.classList.remove("asc"));
     tableHead.querySelectorAll(".desc").forEach(th => th.classList.remove("desc"));
     tableHead.querySelector('#header_' + filterOptions.order_by).classList.add(filterOptions.direction);
+
+    updateTooltips();
 }
 
 function populateMaxValues(max_values) {
@@ -642,8 +651,12 @@ if (RUN_MODE) {
     fetch(apiSolverRunList).then(response => response.json()).then(populateRunHeader);
 }
 
-const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+var tooltipList;
+function updateTooltips() {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+}
+updateTooltips();
 
 fetch(apiBase + "status")
     .then(response => response.json())
