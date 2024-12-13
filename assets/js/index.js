@@ -377,6 +377,7 @@ function populateMaxValues(max_values) {
     populate("num_ccs", "$ connected comps.");
     populate("nodes_largest_cc", "$ nodes in largest cc");
     populate("best_score", "$ nodes in domset");
+    populate("treewidth", "$ treewidth");
 
     if (RUN_MODE) {
         populate("score", "$ nodes in domset");
