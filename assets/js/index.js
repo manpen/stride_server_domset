@@ -89,16 +89,21 @@ function buildFilter() {
 
             if (parseInt(value)) {
                 value = parseInt(value);
-            }
+            } 
 
             filter[key] = value;
+        }
+
+        function updateBool(key, value) {
+            if (value == "none") { return; }
+            filter[key] = (value == "true");
         }
 
         if (e.id.startsWith("constr_")) {
             update(e.id.replace("constr_", ""), e.value)
 
         } else if (e.id.startsWith("bool_constr_")) {
-            update(e.id.replace("bool_constr_", ""), e.value);
+            updateBool(e.id.replace("bool_constr_", ""), e.value);
         }
     });
 
