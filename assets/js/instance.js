@@ -457,6 +457,99 @@ document.getElementById("solution-select").addEventListener("change", (e) => {
     }
 });
 
+function populateHistogram(hist) {
+    score_list = [];
+    let num_total = 0;
+    let num_solved = 0;
+    hist.forEach(e => {
+        num_total += e.count;
+        if (e.score !== null) {
+            num_solved += e.count;
+            for (let i = 0; i < e.count; i++) {
+                score_list.push({ score: e.score });
+
+            }
+        }
+    });
+
+    document.getElementById("solution-counts").innerHTML = `Total number of runs for this instance in database: ${num_total}<br>Runs with a solution: ${num_solved} (${(num_solved / num_total * 100).toFixed(2)}%)`;
+
+    const elem = document.getElementById("solution-hist");
+
+    // Declare the chart dimensions and margins.
+    const width = elem.offsetWidth;
+    const height = Math.max(350, elem.offsetHeight);
+    const marginTop = 20;
+    const marginRight = 20;
+    const marginBottom = 30;
+    const marginLeft = 40;
+
+    // Bin the data.
+    const bins = d3.bin()
+        .thresholds(50)
+        .value((d) => d.score)
+        (score_list);
+
+    console.log(bins);
+
+    // Declare the x (horizontal position) scale.
+    const x = d3.scaleLinear()
+        .domain([bins[0].x0, bins[bins.length - 1].x1])
+        .range([marginLeft, width - marginRight]);
+
+    // Declare the y (vertical position) scale.
+    const y = d3.scaleLinear()
+        .domain([0, d3.max(bins, (d) => d.length)])
+        .range([height - marginBottom, marginTop]);
+
+    // Create the SVG container.
+    const svg = d3.create("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("viewBox", [0, 0, width, height])
+        .attr("style", "max-width: 100%; height: auto;");
+
+    // Add a rect for each bin.
+    svg.append("g")
+        .attr("fill", "steelblue")
+        .selectAll()
+        .data(bins)
+        .join("rect")
+        .attr("x", (d) => x(d.x0) + 1)
+        .attr("width", (d) => Math.max(1, x(d.x1) - x(d.x0) - 1))
+        .attr("y", (d) => y(d.length))
+        .attr("height", (d) => y(0) - y(d.length));
+
+    // Add the x-axis and label.
+    svg.append("g")
+        .attr("transform", `translate(0,${height - marginBottom})`)
+        .call(d3.axisBottom(x).ticks(width / 80).tickSizeOuter(0))
+        .call((g) => g.append("text")
+            .attr("x", width)
+            .attr("y", marginBottom - 4)
+            .attr("fill", "currentColor")
+            .attr("text-anchor", "end")
+            .text("Solution score →"));
+
+    // Add the y-axis and label, and remove the domain line.
+    const yAxisTicks = y.ticks(height / 40)
+        .filter(tick => Number.isInteger(tick));
+
+    svg.append("g")
+        .attr("transform", `translate(${marginLeft},0)`)
+        .call(d3.axisLeft(y).ticks().tickValues(yAxisTicks).tickFormat(d3.format('d')))
+        .call((g) => g.select(".domain").remove())
+        .call((g) => g.append("text")
+            .attr("x", -marginLeft)
+            .attr("y", 10)
+            .attr("fill", "currentColor")
+            .attr("text-anchor", "start")
+            .text("↑ Frequency (no. of solutions)"));
+
+    let obj = Object.assign(svg.node());
+    elem.appendChild(obj);
+}
+
 fetch(`${API_BASE}instance_solutions?iid=${IID}` + (SOLVER_MODE ? `&solver=${SOLVER}` : ''))
     .then(response => response.json())
     .then((data) => {
@@ -474,7 +567,12 @@ fetch(`${API_BASE}instance_solutions?iid=${IID}` + (SOLVER_MODE ? `&solver=${SOL
                 last_solution = sol.run;
             });
             solutions.value = RUN ? RUN : last_solution;
+
             fetch_solution(last_solution);
+        }
+
+        if (data.global_score_histogram !== null && data.global_score_histogram.length > 0) {
+            populateHistogram(data.global_score_histogram);
         }
     });
 
@@ -506,6 +604,28 @@ fetch(`${API_BASE}instances/list`, {
                 fetch_graph();
             });
         }
+
+        document.querySelectorAll("[data-field]").forEach((elem) => {
+            const field = elem.getAttribute("data-field");
+            const value = inst[field];
+
+            let display;
+            if (value === null || value === undefined) {
+                display = "n/a";
+            }
+            if (typeof value === "boolean") {
+                display = value ? "✅" : "❌";
+            } else if (typeof value === "number") {
+                let number_str = value.toString();
+                for (var i = number_str.length - 3; i > 0; i -= 3) {
+                    number_str = number_str.slice(0, i) + "'" + number_str.slice(i);
+                }
+
+                display = number_str;
+            }
+
+            elem.innerText = display;
+        });
     });
 
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')

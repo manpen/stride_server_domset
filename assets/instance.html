@@ -43,19 +43,99 @@
     </header>
 
     <div class="container mt-3">
-        <h1 id="instance-name" class="run-mode-only">Instance</h1>
-        <nav aria-label="breadcrumb" class="run-mode-only">
+        <h1 id="instance-name">Instance</h1>
+        <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/">Home</a></li>
-                <li class="breadcrumb-item"><a href="runs.html" id="breadcrumb-solver">Solver</a></li>
+                <li class="breadcrumb-item solver-mode-only"><a href="runs.html" id="breadcrumb-solver">Solver</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Instance</li>
             </ol>
         </nav>
         <p id="instance-description"></p>
-    </div>
 
+    </div>
+    
     <main>
-        <div id="graph-vis-outer" class="container pt-1">
+        <div id="instance-properties-outer" class="container pt-1">
+            <div class="row" data-bs-toggle="collapse" data-bs-target="#instance-properties" aria-expanded="true"
+                aria-controls="instance-properties">
+                <div class="col-8">
+                    <h3>Instance and solutions summary</h3>
+                </div>
+                <div class="col-4" style="text-align: right;">
+                    <button class="btn btn-secondary btn-close" data-bs-toggle="collapse" data-bs-target="#instance-properties"
+                        aria-expanded="true" aria-controls="instance-properties" aria-label="Close"></button>
+                </div>
+            </div>
+        
+            <div id="instance-properties" class="collapse show">
+                <div class="row align-items-end">
+                    <div class="col-6">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Property</th>
+                                    <th style="width: 40%">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Instance id (IID)</td>
+                                    <td data-field="iid"></td>
+                                </tr>
+        
+                                <tr>
+                                    <td>Number of nodes</td>
+                                    <td data-field="nodes"></td>
+                                </tr>
+                                <tr>
+                                    <td>Number of edges</td>
+                                    <td data-field="edges"></td>
+                                </tr>
+        
+                                <tr>
+                                    <td>Smallest degree</td>
+                                    <td data-field="min_deg"></td>
+                                </tr>
+                                <tr>
+                                    <td>Largest degree</td>
+                                    <td data-field="max_deg"></td>
+                                </tr>
+        
+                                <tr>
+                                    <td>Number of connected components</td>
+                                    <td data-field="num_ccs"></td>
+                                </tr>
+                                <tr>
+                                    <td>Largest connected component</td>
+                                    <td data-field="nodes_largest_cc"></td>
+                                </tr>
+        
+                                <tr>
+                                    <td>Treewidth</td>
+                                    <td data-field="treewidth"></td>
+                                </tr>
+        
+                                <tr>
+                                    <td>Planar</td>
+                                    <td data-field="planar"></td>
+                                </tr>
+        
+                                <tr>
+                                    <td>Bipartite</td>
+                                    <td data-field="bipartite"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-6">
+                        <div id="solution-counts"></div>
+                        <div id="solution-hist" class="mt-5 mb-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="graph-vis-outer" class="container pt-1 mt-4">
             <div class="row" data-bs-toggle="collapse" data-bs-target="#graph-vis" aria-expanded="true"
                 aria-controls="graph-vis">
                 <div class="col-8">

@@ -315,7 +315,8 @@ th.sortable {
     r: 16px;
 }
 
-#graph-vis-outer {
+#graph-vis-outer,
+#instance-properties-outer {
     background-color: var(--bs-dark-bg-subtle);
     border-radius: var(--bs-border-radius);
 }
