@@ -2,6 +2,8 @@
 set -x
 set -e
 
+cd $(dirname $0)
+
 PYENV="pyenv"
 SQLITE_DB_FILE="db_meta.db"
 
